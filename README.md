@@ -1,2 +1,3 @@
 # esphome_sd_card
-An SD card component for esphome
+
+SD cards components for esphome
