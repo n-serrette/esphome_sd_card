@@ -4,7 +4,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: esp-idf
+    type: arduino
 
 external_components:
   - source: components
@@ -16,3 +16,5 @@ wifi:
 logger:
   level: VERBOSE #makes uart stream available in esphome logstream
   baud_rate: 0 #disable logging over uart
+esp32_camera_sd_card:
+  id: esp_camera_sd_card
