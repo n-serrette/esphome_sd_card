@@ -16,6 +16,15 @@ wifi:
 logger:
   level: VERBOSE #makes uart stream available in esphome logstream
   baud_rate: 0 #disable logging over uart
+  on_message:
+    level: DEBUG
+    then:
+      - esp32_camera_sd_card.append_file:
+          path: "/test.log" 
+          data: !lambda |
+            std::string str(message);
+            str += "\n";
+            return std::vector<uint8_t>(str.begin(), str.end());
 
 globals:
   - id: capture_switch_state

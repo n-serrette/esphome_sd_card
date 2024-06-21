@@ -28,6 +28,7 @@ public:
   void loop() override;
   void dump_config() override;
   void write_file(const char *path, const uint8_t *buffer, size_t len);
+  void append_file(const char *path, const uint8_t *buffer, size_t len);
 protected:
   void update_sensors();
 };
@@ -47,6 +48,23 @@ template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {
  protected:
   Esp32CameraSDCardComponent *parent_;
 };
+
+template<typename... Ts> class SDCardAppendFileAction : public Action<Ts...> {
+ public:
+  SDCardAppendFileAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(std::string, path)
+  TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
+
+  void play(Ts... x) {
+    auto path = this->path_.value(x...);
+    auto buffer = this->data_.value(x...);
+    this->parent_->append_file(path.c_str(), buffer.data(), buffer.size());
+  }
+
+ protected:
+  Esp32CameraSDCardComponent *parent_;
+};
+
 long double convertBytes(uint64_t, MemoryUnits);
 
 }  // namespace esp32_camera_sd_card

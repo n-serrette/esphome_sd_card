@@ -44,6 +44,19 @@ void Esp32CameraSDCardComponent::write_file(const char *path, const uint8_t *buf
   this->update_sensors();
 }
 
+void Esp32CameraSDCardComponent::append_file(const char *path, const uint8_t *buffer, size_t len) {
+  ESP_LOGV(TAG, "Appending to file: %s", path);
+
+  File file = SD_MMC.open(path, FILE_APPEND);
+  if(!file){
+      ESP_LOGE(TAG, "Failed to open file for appending");
+      return;
+  }
+  file.write(buffer, len);
+  file.close();
+  this->update_sensors();
+}
+
 void Esp32CameraSDCardComponent::update_sensors() {
 #ifdef USE_SENSOR
   if(this->used_space_sensor_ != nullptr)

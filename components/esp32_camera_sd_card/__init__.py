@@ -12,6 +12,7 @@ Esp32CameraSDCardComponent = esp32_camera_sd_card_component_ns.class_("Esp32Came
 
 # Action
 SDCardWriteFileAction = esp32_camera_sd_card_component_ns.class_("SDCardWriteFileAction", automation.Action)
+SDCardAppendFileAction = esp32_camera_sd_card_component_ns.class_("SDCardAppendFileAction", automation.Action)
 
 def validate_raw_data(value):
     if isinstance(value, str):
@@ -51,6 +52,19 @@ SD_CARD_WRITE_FILE_ACTION_SCHEMA = cv.Schema(
     "esp32_camera_sd_card.write_file", SDCardWriteFileAction, SD_CARD_WRITE_FILE_ACTION_SCHEMA
 )
 async def esp32_camera_sd_card_write_file_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    path_ = await cg.templatable(config[CONF_PATH], args, cg.std_string)
+    data_ = await cg.templatable(config[CONF_DATA], args, cg.std_vector.template(cg.uint8))
+    cg.add(var.set_path(path_))
+    cg.add(var.set_data(data_))
+    return var
+
+
+@automation.register_action(
+    "esp32_camera_sd_card.append_file", SDCardAppendFileAction, SD_CARD_WRITE_FILE_ACTION_SCHEMA
+)
+async def esp32_camera_sd_card_append_file_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, parent)
     path_ = await cg.templatable(config[CONF_PATH], args, cg.std_string)
