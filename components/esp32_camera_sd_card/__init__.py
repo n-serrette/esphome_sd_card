@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_DATA
 from esphome.core import CORE
 
-CONF_ESP32_CAMERA_SD_CARD_ID = "esp32_camera_sd_card"
+CONF_ESP32_CAMERA_SD_CARD_ID = "esp32_camera_sd_card_id"
 
 esp32_camera_sd_card_component_ns = cg.esphome_ns.namespace("esp32_camera_sd_card")
 Esp32CameraSDCardComponent = esp32_camera_sd_card_component_ns.class_("Esp32CameraSDCardComponent", cg.Component)

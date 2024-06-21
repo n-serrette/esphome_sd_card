@@ -16,5 +16,21 @@ wifi:
 logger:
   level: VERBOSE #makes uart stream available in esphome logstream
   baud_rate: 0 #disable logging over uart
+
 esp32_camera_sd_card:
   id: esp_camera_sd_card
+
+sensor:
+  - platform: esp32_camera_sd_card
+    type: USED_SPACE
+    unit_of_measurement: Mb
+    name: "SD card used space"
+    filters:
+      - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::MegaByte);
+
+  - platform: esp32_camera_sd_card
+    type: TOTAL_SPACE
+    name: "SD card total space"
+    unit_of_measurement: Gb
+    filters:
+      - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::GigaByte);
