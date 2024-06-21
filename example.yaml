@@ -17,8 +17,66 @@ logger:
   level: VERBOSE #makes uart stream available in esphome logstream
   baud_rate: 0 #disable logging over uart
 
+globals:
+  - id: capture_switch_state
+    type: boolean
+    restore_value: false
+    initial_value: "false"
+  - id: await_capture_state
+    type: boolean
+    restore_value: false
+    initial_value: "false"
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Paris
+
 esp32_camera_sd_card:
   id: esp_camera_sd_card
+
+esp32_camera:
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+  # Image settings
+  name: My Camera
+  id: camera
+  max_framerate: 5fps
+  jpeg_quality: 10
+  resolution: 1920x1080
+  vertical_flip: False
+  on_image:
+    then:
+      - if:
+          condition:
+            lambda: "return id(await_capture_state);"
+          then:
+            - esp32_camera_sd_card.write_file:
+                path: !lambda "return \"/test_\" + id(sntp_time).now().strftime(\"%FT%H-%M-%S\") + \".jpg\";" 
+                data: !lambda "return std::vector<uint8_t>(&image.data[0], &image.data[image.length]);"
+            - logger.log: "image saved"
+            - lambda: "id(await_capture_state) = false;"
+
+switch:
+  - platform: template
+    name: Capture Switch
+    id: capture_switch
+    optimistic: true
+    lambda: return id(capture_switch_state);
+    turn_on_action: 
+      then:
+        - lambda: |
+            id(capture_switch_state) = false;
+            id(await_capture_state) = true;
 
 sensor:
   - platform: esp32_camera_sd_card
