@@ -5,6 +5,9 @@
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 namespace esphome {
 namespace esp32_camera_sd_card {
@@ -23,6 +26,9 @@ class Esp32CameraSDCardComponent : public Component {
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
 #endif
+#ifdef USE_TEXT_SENSOR
+  SUB_TEXT_SENSOR(sd_card_type)
+#endif
 public:
   void setup() override;
   void loop() override;
@@ -31,6 +37,7 @@ public:
   void append_file(const char *path, const uint8_t *buffer, size_t len);
 protected:
   void update_sensors();
+  std::string sd_card_type_to_string(int) const;
 };
 
 template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {

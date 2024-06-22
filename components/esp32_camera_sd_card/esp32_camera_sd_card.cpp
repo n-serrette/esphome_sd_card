@@ -17,6 +17,20 @@ void Esp32CameraSDCardComponent::setup() {
     mark_failed();
     return;
   }
+
+  uint8_t cardType = SD_MMC.cardType();
+
+#ifdef USE_TEXT_SENSOR
+  if(this->sd_card_type_text_sensor_ != nullptr)
+    this->sd_card_type_text_sensor_->publish_state(sd_card_type_to_string(cardType));
+#endif
+
+  if(cardType == CARD_NONE){
+      ESP_LOGE(TAG, "No SD_MMC card attached");
+      mark_failed();
+      return;
+  }
+
   update_sensors();
 }
 
@@ -27,6 +41,9 @@ void Esp32CameraSDCardComponent::dump_config() {
   #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
+  #endif
+  #ifdef USE_TEXT_SENSOR
+  LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
   #endif
 }
 
@@ -55,6 +72,22 @@ void Esp32CameraSDCardComponent::append_file(const char *path, const uint8_t *bu
   file.write(buffer, len);
   file.close();
   this->update_sensors();
+}
+
+std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
+  switch(type) {
+    case CARD_NONE:
+      return "NONE";
+    case CARD_MMC:
+      return "MMC";
+    case CARD_SD:
+      return "SDSC";
+    case CARD_SDHC:
+      return "SDHC";
+    case CARD_UNKNOWN:
+    default:
+      return "UNKNOWN";
+  }
 }
 
 void Esp32CameraSDCardComponent::update_sensors() {

@@ -101,3 +101,8 @@ sensor:
     unit_of_measurement: Gb
     filters:
       - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::GigaByte);
+
+text_sensor:
+  - platform: esp32_camera_sd_card
+    sd_card_type:
+      name: "SD card type"
