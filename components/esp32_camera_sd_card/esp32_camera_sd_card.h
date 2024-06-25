@@ -35,6 +35,7 @@ public:
   void dump_config() override;
   void write_file(const char *path, const uint8_t *buffer, size_t len);
   void append_file(const char *path, const uint8_t *buffer, size_t len);
+  bool create_directory(const char *path);
 protected:
   void update_sensors();
   std::string sd_card_type_to_string(int) const;
@@ -66,6 +67,20 @@ template<typename... Ts> class SDCardAppendFileAction : public Action<Ts...> {
     auto path = this->path_.value(x...);
     auto buffer = this->data_.value(x...);
     this->parent_->append_file(path.c_str(), buffer.data(), buffer.size());
+  }
+
+ protected:
+  Esp32CameraSDCardComponent *parent_;
+};
+
+template<typename... Ts> class SDCardCreateDirectoryAction : public Action<Ts...> {
+ public:
+  SDCardCreateDirectoryAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(std::string, path)
+
+  void play(Ts... x) {
+    auto path = this->path_.value(x...);
+    this->parent_->create_directory(path.c_str());
   }
 
  protected:

@@ -74,6 +74,16 @@ void Esp32CameraSDCardComponent::append_file(const char *path, const uint8_t *bu
   this->update_sensors();
 }
 
+
+bool Esp32CameraSDCardComponent::create_directory(const char *path) {
+  ESP_LOGV(TAG, "Create directory: %s", path);
+  if (!SD_MMC.mkdir(path)) {
+    ESP_LOGE(TAG, "Failed to create directory");
+    return false;
+  }
+  return true;
+}
+
 std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   switch(type) {
     case CARD_NONE:
