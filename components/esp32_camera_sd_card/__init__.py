@@ -14,6 +14,7 @@ Esp32CameraSDCardComponent = esp32_camera_sd_card_component_ns.class_("Esp32Came
 SDCardWriteFileAction = esp32_camera_sd_card_component_ns.class_("SDCardWriteFileAction", automation.Action)
 SDCardAppendFileAction = esp32_camera_sd_card_component_ns.class_("SDCardAppendFileAction", automation.Action)
 SDCardCreateDirectoryAction = esp32_camera_sd_card_component_ns.class_("SDCardCreateDirectoryAction", automation.Action)
+SDCardRemoveDirectoryAction = esp32_camera_sd_card_component_ns.class_("SDCardRemoveDirectoryAction", automation.Action)
 
 def validate_raw_data(value):
     if isinstance(value, str):
@@ -85,6 +86,17 @@ async def esp32_camera_sd_card_append_file_to_code(config, action_id, template_a
     "esp32_camera_sd_card.create_directory", SDCardCreateDirectoryAction, SD_CARD_PATH_ACTION_SCHEMA
 )
 async def esp32_camera_sd_card_create_directory_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
+    path_ = await cg.templatable(config[CONF_PATH], args, cg.std_string)
+    cg.add(var.set_path(path_))
+    return var
+
+
+@automation.register_action(
+    "esp32_camera_sd_card.remove_directory", SDCardRemoveDirectoryAction, SD_CARD_PATH_ACTION_SCHEMA
+)
+async def esp32_camera_sd_card_remove_directory_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     var = cg.new_Pvariable(action_id, template_arg, parent)
     path_ = await cg.templatable(config[CONF_PATH], args, cg.std_string)
