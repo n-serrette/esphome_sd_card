@@ -81,6 +81,7 @@ bool Esp32CameraSDCardComponent::create_directory(const char *path) {
     ESP_LOGE(TAG, "Failed to create directory");
     return false;
   }
+  this->update_sensors();
   return true;
 }
 
@@ -90,6 +91,7 @@ bool Esp32CameraSDCardComponent::remove_directory(const char *path) {
     ESP_LOGE(TAG, "Failed to remove directory");
     return false;
   }
+  this->update_sensors();
   return true;
 }
 
@@ -99,6 +101,7 @@ bool Esp32CameraSDCardComponent::delete_file(const char *path) {
     ESP_LOGE(TAG, "failed to remove file");
     return false;
   }
+  this->update_sensors();
   return true;
 }
 
