@@ -93,6 +93,15 @@ bool Esp32CameraSDCardComponent::remove_directory(const char *path) {
   return true;
 }
 
+bool Esp32CameraSDCardComponent::delete_file(const char *path) {
+  ESP_LOGV(TAG, "Delete File: %s", path);
+  if (!SD_MMC.remove(path)) {
+    ESP_LOGE(TAG, "failed to remove file");
+    return false;
+  }
+  return true;
+}
+
 std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   switch(type) {
     case CARD_NONE:

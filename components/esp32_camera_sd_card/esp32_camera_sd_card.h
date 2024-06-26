@@ -35,6 +35,7 @@ public:
   void dump_config() override;
   void write_file(const char *path, const uint8_t *buffer, size_t len);
   void append_file(const char *path, const uint8_t *buffer, size_t len);
+  bool delete_file(const char *path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
 protected:
@@ -96,6 +97,20 @@ template<typename... Ts> class SDCardRemoveDirectoryAction : public Action<Ts...
   void play(Ts... x) {
     auto path = this->path_.value(x...);
     this->parent_->remove_directory(path.c_str());
+  }
+
+ protected:
+  Esp32CameraSDCardComponent *parent_;
+};
+
+template<typename... Ts> class SDCardDeleteFileAction : public Action<Ts...> {
+ public:
+  SDCardDeleteFileAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(std::string, path)
+
+  void play(Ts... x) {
+    auto path = this->path_.value(x...);
+    this->parent_->delete_file(path.c_str());
   }
 
  protected:
