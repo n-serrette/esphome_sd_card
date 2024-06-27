@@ -105,6 +105,38 @@ bool Esp32CameraSDCardComponent::delete_file(const char *path) {
   return true;
 }
 
+std::vector<std::string> Esp32CameraSDCardComponent::list_directory(const char * path, uint8_t depth) {
+  std::vector<std::string> list;
+  list_directory_rec(path, depth, list);
+  return list;
+}
+
+std::vector<std::string>& Esp32CameraSDCardComponent::list_directory_rec(const char * path, uint8_t depth, std::vector<std::string>& list) {
+  ESP_LOGV(TAG, "Listing directory: %s\n", path);
+
+  File root = SD_MMC.open(path);
+  if (!root) {
+    ESP_LOGE(TAG, "Failed to open directory");
+    return list;
+  }
+  if (!root.isDirectory()) {
+    ESP_LOGE(TAG, "Not a directory");
+    return list;
+  }
+
+  File file = root.openNextFile();
+  while (file) {
+    list.emplace_back(file.path());
+    if (file.isDirectory()) {
+      if (depth) {
+        list_directory_rec(file.path(), depth - 1, list);
+      }
+    }
+    file = root.openNextFile();
+  }
+  return list;
+}
+
 std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   switch(type) {
     case CARD_NONE:

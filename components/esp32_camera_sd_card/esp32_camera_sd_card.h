@@ -38,9 +38,11 @@ public:
   bool delete_file(const char *path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
+  std::vector<std::string> list_directory(const char * path, uint8_t depth);
 protected:
   void update_sensors();
   std::string sd_card_type_to_string(int) const;
+  std::vector<std::string>& list_directory_rec(const char * path, uint8_t depth, std::vector<std::string>& list);
 };
 
 template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {
