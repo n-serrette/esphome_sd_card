@@ -54,7 +54,14 @@ public:
 #ifdef USE_SENSOR
   void add_file_size_sensor(sensor::Sensor *, std::string const &path);
 #endif
+
  protected:
+  int clk_pin{14};
+  int cmd_pin{15};
+  int data0_pin{2};
+  int data1_pin{-1};
+  int data2_pin{-1};
+  int data3_pin{-1};
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
 #endif

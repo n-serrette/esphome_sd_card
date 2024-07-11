@@ -16,6 +16,11 @@ FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) 
 #endif
 
 void Esp32CameraSDCardComponent::setup() {
+  if (!SD_MMC.setPins(this->clk_pin, this->cmd_pin, this->data0_pin, this->data1_pin, this->data2_pin, this->data3_pin)) {
+    ESP_LOGE(TAG, "Failed to set pins");
+    mark_failed();
+    return;
+  }
   if (!SD_MMC.begin()) {
     ESP_LOGE(TAG, "Card Mount Failed");
     mark_failed();
