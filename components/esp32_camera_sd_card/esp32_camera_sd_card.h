@@ -12,14 +12,7 @@
 namespace esphome {
 namespace esp32_camera_sd_card {
 
-enum MemoryUnits: short {
-  Byte = 0,
-  KiloByte = 1,
-  MegaByte = 2,
-  GigaByte = 3,
-  TeraByte = 4,
-  PetaByte = 5
-};
+enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
 
 #ifdef USE_SENSOR
 struct FileSizeSensor {
@@ -39,7 +32,7 @@ class Esp32CameraSDCardComponent : public Component {
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)
 #endif
-public:
+ public:
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -48,7 +41,7 @@ public:
   bool delete_file(const char *path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
-  std::vector<std::string> list_directory(const char * path, uint8_t depth);
+  std::vector<std::string> list_directory(const char *path, uint8_t depth);
   size_t file_size(const char *path);
   size_t file_size(std::string const &path);
 #ifdef USE_SENSOR
@@ -67,7 +60,7 @@ public:
 #endif
   void update_sensors();
   std::string sd_card_type_to_string(int) const;
-  std::vector<std::string>& list_directory_rec(const char * path, uint8_t depth, std::vector<std::string>& list);
+  std::vector<std::string> &list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list);
 };
 
 template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {
