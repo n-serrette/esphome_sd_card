@@ -11,6 +11,10 @@ namespace esp32_camera_sd_card {
 
 static const char *TAG = "esp32_camera_sd_card";
 
+#ifdef USE_SENSOR
+FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
+#endif
+
 void Esp32CameraSDCardComponent::setup() {
   if (!SD_MMC.begin()) {
     ESP_LOGE(TAG, "Card Mount Failed");
@@ -41,6 +45,10 @@ void Esp32CameraSDCardComponent::dump_config() {
   #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
+    for (auto &sensor : this->file_size_sensors_) {
+    if (sensor.sensor != nullptr)
+      LOG_SENSOR("  ", "File size", sensor.sensor);
+  }
   #endif
   #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
@@ -137,6 +145,19 @@ std::vector<std::string>& Esp32CameraSDCardComponent::list_directory_rec(const c
   return list;
 }
 
+size_t Esp32CameraSDCardComponent::file_size(const char *path) {
+  File file = SD_MMC.open(path);
+  return file.size();
+}
+
+size_t Esp32CameraSDCardComponent::file_size(std::string const &path) { return this->file_size(path.c_str()); }
+
+#ifdef USE_SENSOR
+void Esp32CameraSDCardComponent::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
+  this->file_size_sensors_.emplace_back(sensor, path);
+}
+#endif
+
 std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   switch(type) {
     case CARD_NONE:
@@ -159,6 +180,11 @@ void Esp32CameraSDCardComponent::update_sensors() {
     this->used_space_sensor_->publish_state(SD_MMC.usedBytes());
   if(this->total_space_sensor_ != nullptr)
     this->total_space_sensor_->publish_state(SD_MMC.totalBytes());
+
+  for (auto &sensor : this->file_size_sensors_) {
+    if (sensor.sensor != nullptr)
+      sensor.sensor->publish_state(this->file_size(sensor.path));
+  }
 #endif
 }
 

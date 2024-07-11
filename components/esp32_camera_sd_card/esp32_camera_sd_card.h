@@ -21,6 +21,16 @@ enum MemoryUnits: short {
   PetaByte = 5
 };
 
+#ifdef USE_SENSOR
+struct FileSizeSensor {
+  sensor::Sensor *sensor{nullptr};
+  std::string path;
+
+  FileSizeSensor() = default;
+  FileSizeSensor(sensor::Sensor *, std::string const &path);
+};
+#endif
+
 class Esp32CameraSDCardComponent : public Component {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
@@ -39,7 +49,15 @@ public:
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
   std::vector<std::string> list_directory(const char * path, uint8_t depth);
-protected:
+  size_t file_size(const char *path);
+  size_t file_size(std::string const &path);
+#ifdef USE_SENSOR
+  void add_file_size_sensor(sensor::Sensor *, std::string const &path);
+#endif
+ protected:
+#ifdef USE_SENSOR
+  std::vector<FileSizeSensor> file_size_sensors_{};
+#endif
   void update_sensors();
   std::string sd_card_type_to_string(int) const;
   std::vector<std::string>& list_directory_rec(const char * path, uint8_t depth, std::vector<std::string>& list);
