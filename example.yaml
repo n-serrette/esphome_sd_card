@@ -43,6 +43,9 @@ time:
 
 esp32_camera_sd_card:
   id: esp_camera_sd_card
+  clk_pin: GPIO14
+  cmd_pin: GPIO15
+  data0_pin: GPIO2
 
 esp32_camera:
   external_clock:

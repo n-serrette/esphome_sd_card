@@ -16,7 +16,9 @@ FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) 
 #endif
 
 void Esp32CameraSDCardComponent::setup() {
-  if (!SD_MMC.setPins(this->clk_pin, this->cmd_pin, this->data0_pin, this->data1_pin, this->data2_pin, this->data3_pin)) {
+  if (!SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
+                      Utility::get_pin_no(this->data0_pin_), Utility::get_pin_no(this->data1_pin_),
+                      Utility::get_pin_no(this->data2_pin_), Utility::get_pin_no(this->data3_pin_))) {
     ESP_LOGE(TAG, "Failed to set pins");
     mark_failed();
     return;
@@ -179,6 +181,18 @@ std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   }
 }
 
+void Esp32CameraSDCardComponent::set_clk_pin(GPIOPin *pin) { this->clk_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_cmd_pin(GPIOPin *pin) { this->cmd_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_data0_pin(GPIOPin *pin) { this->data0_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_data1_pin(GPIOPin *pin) { this->data1_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
+
 void Esp32CameraSDCardComponent::update_sensors() {
 #ifdef USE_SENSOR
   if (this->used_space_sensor_ != nullptr)
@@ -191,6 +205,14 @@ void Esp32CameraSDCardComponent::update_sensors() {
       sensor.sensor->publish_state(this->file_size(sensor.path));
   }
 #endif
+}
+
+int Utility::get_pin_no(GPIOPin *pin) {
+  if (pin == nullptr || !pin->is_internal())
+    return -1;
+  if (((InternalGPIOPin *) pin)->is_inverted())
+    return -1;
+  return ((InternalGPIOPin *) pin)->get_pin();
 }
 
 long double convertBytes(uint64_t value, MemoryUnits unit) {

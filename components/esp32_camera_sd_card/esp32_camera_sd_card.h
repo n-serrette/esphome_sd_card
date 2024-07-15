@@ -1,4 +1,5 @@
 #pragma once
+#include "esphome/core/gpio.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
@@ -48,13 +49,20 @@ class Esp32CameraSDCardComponent : public Component {
   void add_file_size_sensor(sensor::Sensor *, std::string const &path);
 #endif
 
+  void set_clk_pin(GPIOPin *);
+  void set_cmd_pin(GPIOPin *);
+  void set_data0_pin(GPIOPin *);
+  void set_data1_pin(GPIOPin *);
+  void set_data2_pin(GPIOPin *);
+  void set_data3_pin(GPIOPin *);
+
  protected:
-  int clk_pin{14};
-  int cmd_pin{15};
-  int data0_pin{2};
-  int data1_pin{-1};
-  int data2_pin{-1};
-  int data3_pin{-1};
+  GPIOPin *clk_pin_;
+  GPIOPin *cmd_pin_;
+  GPIOPin *data0_pin_;
+  GPIOPin *data1_pin_;
+  GPIOPin *data2_pin_;
+  GPIOPin *data3_pin_;
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
 #endif
@@ -135,6 +143,10 @@ template<typename... Ts> class SDCardDeleteFileAction : public Action<Ts...> {
 
  protected:
   Esp32CameraSDCardComponent *parent_;
+};
+
+struct Utility {
+  static int get_pin_no(GPIOPin *);
 };
 
 long double convertBytes(uint64_t, MemoryUnits);
