@@ -55,6 +55,7 @@ class Esp32CameraSDCardComponent : public Component {
   void set_data1_pin(GPIOPin *);
   void set_data2_pin(GPIOPin *);
   void set_data3_pin(GPIOPin *);
+  void set_mode_1bit(bool);
 
  protected:
   GPIOPin *clk_pin_;
@@ -63,6 +64,8 @@ class Esp32CameraSDCardComponent : public Component {
   GPIOPin *data1_pin_;
   GPIOPin *data2_pin_;
   GPIOPin *data3_pin_;
+  bool mode_1bit_{false};
+
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
 #endif

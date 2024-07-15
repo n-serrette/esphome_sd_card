@@ -16,14 +16,21 @@ FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) 
 #endif
 
 void Esp32CameraSDCardComponent::setup() {
-  if (!SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
-                      Utility::get_pin_no(this->data0_pin_), Utility::get_pin_no(this->data1_pin_),
-                      Utility::get_pin_no(this->data2_pin_), Utility::get_pin_no(this->data3_pin_))) {
+  bool setPinResult =
+      this->mode_1bit_ ? SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
+                                        Utility::get_pin_no(this->data0_pin_))
+                       : SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
+                                        Utility::get_pin_no(this->data0_pin_), Utility::get_pin_no(this->data1_pin_),
+                                        Utility::get_pin_no(this->data2_pin_), Utility::get_pin_no(this->data3_pin_));
+
+  if (!setPinResult) {
     ESP_LOGE(TAG, "Failed to set pins");
     mark_failed();
     return;
   }
-  if (!SD_MMC.begin()) {
+
+  bool beginResult = this->mode_1bit_ ? SD_MMC.begin("/sdcard", this->mode_1bit_) : SD_MMC.begin();
+  if (!beginResult) {
     ESP_LOGE(TAG, "Card Mount Failed");
     mark_failed();
     return;
@@ -49,6 +56,15 @@ void Esp32CameraSDCardComponent::loop() {}
 
 void Esp32CameraSDCardComponent::dump_config() {
   ESP_LOGCONFIG(TAG, "Esp32 Camera SD Card Component");
+  ESP_LOGCONFIG(TAG, "Mode 1 bit: %d", this->mode_1bit_);
+  LOG_PIN("  CLK Pin: ", this->clk_pin_);
+  LOG_PIN("  CMD Pin: ", this->cmd_pin_);
+  LOG_PIN("  DATA0 Pin: ", this->data0_pin_);
+  if (!this->mode_1bit_) {
+    LOG_PIN("  DATA1 Pin: ", this->data1_pin_);
+    LOG_PIN("  DATA2 Pin: ", this->data2_pin_);
+    LOG_PIN("  DATA3 Pin: ", this->data3_pin_);
+  }
 #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
@@ -192,6 +208,8 @@ void Esp32CameraSDCardComponent::set_data1_pin(GPIOPin *pin) { this->data1_pin_ 
 void Esp32CameraSDCardComponent::set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
 
 void Esp32CameraSDCardComponent::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
+
+void Esp32CameraSDCardComponent::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
 
 void Esp32CameraSDCardComponent::update_sensors() {
 #ifdef USE_SENSOR

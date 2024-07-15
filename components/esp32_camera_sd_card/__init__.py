@@ -14,6 +14,10 @@ from esphome.core import CORE
 CONF_ESP32_CAMERA_SD_CARD_ID = "esp32_camera_sd_card_id"
 CONF_CMD_PIN = "cmd_pin"
 CONF_DATA0_PIN = "data0_pin"
+CONF_DATA1_PIN = "data1_pin"
+CONF_DATA2_PIN = "data2_pin"
+CONF_DATA3_PIN = "data3_pin"
+CONF_MODE_1BIT = "mode_1bit"
 
 esp32_camera_sd_card_component_ns = cg.esphome_ns.namespace("esp32_camera_sd_card")
 Esp32CameraSDCardComponent = esp32_camera_sd_card_component_ns.class_("Esp32CameraSDCardComponent", cg.Component)
@@ -40,6 +44,10 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_CLK_PIN, default="GPIO14"): pins.gpio_output_pin_schema,
         cv.Optional(CONF_CMD_PIN, default="GPIO15"): pins.gpio_output_pin_schema,
         cv.Optional(CONF_DATA0_PIN, default="GPIO2"): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA1_PIN, default="GPIO4"): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA2_PIN, default="GPIO12"): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA3_PIN, default="GPIO13"): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -56,6 +64,17 @@ async def to_code(config):
 
     data0 = await cg.gpio_pin_expression(config[CONF_DATA0_PIN])
     cg.add(var.set_data0_pin(data0))
+
+    data1 = await cg.gpio_pin_expression(config[CONF_DATA1_PIN])
+    cg.add(var.set_data1_pin(data1))
+
+    data2 = await cg.gpio_pin_expression(config[CONF_DATA2_PIN])
+    cg.add(var.set_data2_pin(data2))
+
+    data3 = await cg.gpio_pin_expression(config[CONF_DATA3_PIN])
+    cg.add(var.set_data3_pin(data3))
+
+    cg.add(var.set_mode_1bit(config[CONF_MODE_1BIT]))
 
     if CORE.using_arduino:
         if CORE.is_esp32:
