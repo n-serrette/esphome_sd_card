@@ -11,7 +11,7 @@
 #endif
 
 namespace esphome {
-namespace esp32_camera_sd_card {
+namespace sd_mmc_card {
 
 enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
 
@@ -25,7 +25,7 @@ struct FileSizeSensor {
 };
 #endif
 
-class Esp32CameraSDCardComponent : public Component {
+class SdMmc : public Component {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
@@ -74,9 +74,9 @@ class Esp32CameraSDCardComponent : public Component {
   std::vector<std::string> &list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list);
 };
 
-template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {
+template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
  public:
-  SDCardWriteFileAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  SdMmcWriteFileAction(SdMmc *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
   TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
 
@@ -87,12 +87,12 @@ template<typename... Ts> class SDCardWriteFileAction : public Action<Ts...> {
   }
 
  protected:
-  Esp32CameraSDCardComponent *parent_;
+  SdMmc *parent_;
 };
 
-template<typename... Ts> class SDCardAppendFileAction : public Action<Ts...> {
+template<typename... Ts> class SdMmcAppendFileAction : public Action<Ts...> {
  public:
-  SDCardAppendFileAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  SdMmcAppendFileAction(SdMmc *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
   TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
 
@@ -103,12 +103,12 @@ template<typename... Ts> class SDCardAppendFileAction : public Action<Ts...> {
   }
 
  protected:
-  Esp32CameraSDCardComponent *parent_;
+  SdMmc *parent_;
 };
 
-template<typename... Ts> class SDCardCreateDirectoryAction : public Action<Ts...> {
+template<typename... Ts> class SdMmcCreateDirectoryAction : public Action<Ts...> {
  public:
-  SDCardCreateDirectoryAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  SdMmcCreateDirectoryAction(SdMmc *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -117,12 +117,12 @@ template<typename... Ts> class SDCardCreateDirectoryAction : public Action<Ts...
   }
 
  protected:
-  Esp32CameraSDCardComponent *parent_;
+  SdMmc *parent_;
 };
 
-template<typename... Ts> class SDCardRemoveDirectoryAction : public Action<Ts...> {
+template<typename... Ts> class SdMmcRemoveDirectoryAction : public Action<Ts...> {
  public:
-  SDCardRemoveDirectoryAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  SdMmcRemoveDirectoryAction(SdMmc *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -131,12 +131,12 @@ template<typename... Ts> class SDCardRemoveDirectoryAction : public Action<Ts...
   }
 
  protected:
-  Esp32CameraSDCardComponent *parent_;
+  SdMmc *parent_;
 };
 
-template<typename... Ts> class SDCardDeleteFileAction : public Action<Ts...> {
+template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
  public:
-  SDCardDeleteFileAction(Esp32CameraSDCardComponent *parent) : parent_(parent) {}
+  SdMmcDeleteFileAction(SdMmc *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -145,7 +145,7 @@ template<typename... Ts> class SDCardDeleteFileAction : public Action<Ts...> {
   }
 
  protected:
-  Esp32CameraSDCardComponent *parent_;
+  SdMmc *parent_;
 };
 
 struct Utility {
@@ -154,5 +154,5 @@ struct Utility {
 
 long double convertBytes(uint64_t, MemoryUnits);
 
-}  // namespace esp32_camera_sd_card
+}  // namespace sd_mmc_card
 }  // namespace esphome

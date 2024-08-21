@@ -1,4 +1,4 @@
-#include "esp32_camera_sd_card.h"
+#include "sd_mmc_card.h"
 
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
 
@@ -9,11 +9,11 @@
 #include "SD_MMC.h"
 
 namespace esphome {
-namespace esp32_camera_sd_card {
+namespace sd_mmc_card {
 
-static const char *TAG = "esp32_camera_sd_card";
+static const char *TAG = "sd_mmc_card_esp32_arduino";
 
-void Esp32CameraSDCardComponent::setup() {
+void SdMmc::setup() {
   bool setPinResult =
       this->mode_1bit_ ? SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
                                         Utility::get_pin_no(this->data0_pin_))
@@ -50,7 +50,7 @@ void Esp32CameraSDCardComponent::setup() {
   update_sensors();
 }
 
-void Esp32CameraSDCardComponent::write_file(const char *path, const uint8_t *buffer, size_t len) {
+void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
   ESP_LOGV(TAG, "Writing file: %s\n", path);
 
   File file = SD_MMC.open(path, FILE_WRITE);
@@ -64,7 +64,7 @@ void Esp32CameraSDCardComponent::write_file(const char *path, const uint8_t *buf
   this->update_sensors();
 }
 
-void Esp32CameraSDCardComponent::append_file(const char *path, const uint8_t *buffer, size_t len) {
+void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
   ESP_LOGV(TAG, "Appending to file: %s", path);
 
   File file = SD_MMC.open(path, FILE_APPEND);
@@ -77,7 +77,7 @@ void Esp32CameraSDCardComponent::append_file(const char *path, const uint8_t *bu
   this->update_sensors();
 }
 
-bool Esp32CameraSDCardComponent::create_directory(const char *path) {
+bool SdMmc::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
   if (!SD_MMC.mkdir(path)) {
     ESP_LOGE(TAG, "Failed to create directory");
@@ -87,7 +87,7 @@ bool Esp32CameraSDCardComponent::create_directory(const char *path) {
   return true;
 }
 
-bool Esp32CameraSDCardComponent::remove_directory(const char *path) {
+bool SdMmc::remove_directory(const char *path) {
   ESP_LOGV(TAG, "Remove directory: %s", path);
   if (!SD_MMC.rmdir(path)) {
     ESP_LOGE(TAG, "Failed to remove directory");
@@ -97,7 +97,7 @@ bool Esp32CameraSDCardComponent::remove_directory(const char *path) {
   return true;
 }
 
-bool Esp32CameraSDCardComponent::delete_file(const char *path) {
+bool SdMmc::delete_file(const char *path) {
   ESP_LOGV(TAG, "Delete File: %s", path);
   if (!SD_MMC.remove(path)) {
     ESP_LOGE(TAG, "failed to remove file");
@@ -107,13 +107,13 @@ bool Esp32CameraSDCardComponent::delete_file(const char *path) {
   return true;
 }
 
-std::vector<std::string> Esp32CameraSDCardComponent::list_directory(const char *path, uint8_t depth) {
+std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   list_directory_rec(path, depth, list);
   return list;
 }
 
-std::vector<std::string> &Esp32CameraSDCardComponent::list_directory_rec(const char *path, uint8_t depth,
+std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t depth,
                                                                          std::vector<std::string> &list) {
   ESP_LOGV(TAG, "Listing directory: %s\n", path);
 
@@ -140,12 +140,12 @@ std::vector<std::string> &Esp32CameraSDCardComponent::list_directory_rec(const c
   return list;
 }
 
-size_t Esp32CameraSDCardComponent::file_size(const char *path) {
+size_t SdMmc::file_size(const char *path) {
   File file = SD_MMC.open(path);
   return file.size();
 }
 
-std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
+std::string SdMmc::sd_card_type_to_string(int type) const {
   switch (type) {
     case CARD_NONE:
       return "NONE";
@@ -161,7 +161,7 @@ std::string Esp32CameraSDCardComponent::sd_card_type_to_string(int type) const {
   }
 }
 
-void Esp32CameraSDCardComponent::update_sensors() {
+void SdMmc::update_sensors() {
 #ifdef USE_SENSOR
   if (this->used_space_sensor_ != nullptr)
     this->used_space_sensor_->publish_state(SD_MMC.usedBytes());
@@ -175,7 +175,7 @@ void Esp32CameraSDCardComponent::update_sensors() {
 #endif
 }
 
-}  // namespace esp32_camera_sd_card
+}  // namespace sd_mmc_card
 }  // namespace esphome
 
 #endif // USE_ESP32_FRAMEWORK_ARDUINO

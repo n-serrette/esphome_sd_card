@@ -19,7 +19,7 @@ logger:
   on_message:
     level: DEBUG
     then:
-      - esp32_camera_sd_card.append_file:
+      - sd_mmc_card.append_file:
           path: "/test.log" 
           data: !lambda |
             std::string str(message);
@@ -41,7 +41,7 @@ time:
     id: sntp_time
     timezone: Europe/Paris
 
-esp32_camera_sd_card:
+sd_mmc_card:
   id: esp_camera_sd_card
   mode_1bit: false
   clk_pin: GPIO14
@@ -76,16 +76,16 @@ esp32_camera:
           condition:
             lambda: "return id(await_capture_state);"
           then:
-            - esp32_camera_sd_card.write_file:
+            - sd_mmc_card.write_file:
                 path: !lambda "return \"/test_\" + id(sntp_time).now().strftime(\"%FT%H-%M-%S\") + \".jpg\";" 
                 data: !lambda "return std::vector<uint8_t>(&image.data[0], &image.data[image.length]);"
             - logger.log: "image saved"
             - lambda: "id(await_capture_state) = false;"
-            - esp32_camera_sd_card.delete_file:
+            - sd_mmc_card.delete_file:
                 path: "/test.txt"
-            - esp32_camera_sd_card.create_directory:
+            - sd_mmc_card.create_directory:
                 path: "/test"
-            - esp32_camera_sd_card.remove_directory:
+            - sd_mmc_card.remove_directory:
                 path: "/test"
 
 switch:
@@ -101,29 +101,29 @@ switch:
             id(await_capture_state) = true;
 
 sensor:
-  - platform: esp32_camera_sd_card
+  - platform: sd_mmc_card
     type: used_space
     unit_of_measurement: Mb
     name: "SD card used space"
     filters:
-      - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::MegaByte);
+      - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::MegaByte);
 
-  - platform: esp32_camera_sd_card
+  - platform: sd_mmc_card
     type: total_space
     name: "SD card total space"
     unit_of_measurement: Gb
     filters:
-      - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::GigaByte);
+      - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::GigaByte);
 
-  - platform: esp32_camera_sd_card
+  - platform: sd_mmc_card
     type: file_size
     name: "text.txt size"
     unit_of_measurement: Kb
     path: "/test.txt"
     filters:
-      - lambda: return esp32_camera_sd_card::convertBytes(x, esp32_camera_sd_card::MemoryUnits::KiloByte);
+      - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::KiloByte);
 
 text_sensor:
-  - platform: esp32_camera_sd_card
+  - platform: sd_mmc_card
     sd_card_type:
       name: "SD card type"

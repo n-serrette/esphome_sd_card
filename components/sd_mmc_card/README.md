@@ -1,4 +1,4 @@
-# esp32_camera_sd_card
+# sd_mmc
 
 An sd card componnent for the esp32 camera
 
@@ -7,6 +7,6 @@ An sd card componnent for the esp32 camera
 ```yaml
 # example configuration:
 
-esp32_camera_sd_card:
+sd_mmc:
   id: esp_camera
 ```

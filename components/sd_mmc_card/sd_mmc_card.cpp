@@ -1,21 +1,21 @@
-#include "esp32_camera_sd_card.h"
+#include "sd_mmc_card.h"
 
 #include "math.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
-namespace esp32_camera_sd_card {
+namespace sd_mmc_card {
 
-static const char *TAG = "esp32_camera_sd_card";
+static const char *TAG = "sd_mmc_card";
 
 #ifdef USE_SENSOR
 FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
 #endif
 
-void Esp32CameraSDCardComponent::loop() {}
+void SdMmc::loop() {}
 
-void Esp32CameraSDCardComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "Esp32 Camera SD Card Component");
+void SdMmc::dump_config() {
+  ESP_LOGCONFIG(TAG, "SD MMC Component");
   ESP_LOGCONFIG(TAG, "Mode 1 bit: %d", this->mode_1bit_);
   LOG_PIN("  CLK Pin: ", this->clk_pin_);
   LOG_PIN("  CMD Pin: ", this->cmd_pin_);
@@ -38,27 +38,27 @@ void Esp32CameraSDCardComponent::dump_config() {
 #endif
 }
 
-size_t Esp32CameraSDCardComponent::file_size(std::string const &path) { return this->file_size(path.c_str()); }
+size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
 
 #ifdef USE_SENSOR
-void Esp32CameraSDCardComponent::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
+void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
   this->file_size_sensors_.emplace_back(sensor, path);
 }
 #endif
 
-void Esp32CameraSDCardComponent::set_clk_pin(GPIOPin *pin) { this->clk_pin_ = pin; }
+void SdMmc::set_clk_pin(GPIOPin *pin) { this->clk_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_cmd_pin(GPIOPin *pin) { this->cmd_pin_ = pin; }
+void SdMmc::set_cmd_pin(GPIOPin *pin) { this->cmd_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_data0_pin(GPIOPin *pin) { this->data0_pin_ = pin; }
+void SdMmc::set_data0_pin(GPIOPin *pin) { this->data0_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_data1_pin(GPIOPin *pin) { this->data1_pin_ = pin; }
+void SdMmc::set_data1_pin(GPIOPin *pin) { this->data1_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
+void SdMmc::set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
+void SdMmc::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
 
-void Esp32CameraSDCardComponent::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
+void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
 
 int Utility::get_pin_no(GPIOPin *pin) {
   if (pin == nullptr || !pin->is_internal())
@@ -72,5 +72,5 @@ long double convertBytes(uint64_t value, MemoryUnits unit) {
   return value * 1.0 / pow(1024, static_cast<uint64_t>(unit));
 }
 
-}  // namespace esp32_camera_sd_card
+}  // namespace sd_mmc_card
 }  // namespace esphome
