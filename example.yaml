@@ -87,6 +87,9 @@ esp32_camera:
                 path: "/test"
             - sd_mmc_card.remove_directory:
                 path: "/test"
+            - lambda: |
+                for (auto const & file : id(esp_camera_sd_card)->list_directory("/", 1))
+                    ESP_LOGE("   ", "File: %s\n", file.c_str());
 
 switch:
   - platform: template

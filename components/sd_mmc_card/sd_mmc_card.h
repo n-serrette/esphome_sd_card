@@ -10,6 +10,8 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #endif
 
+#include "FS.h"
+
 namespace esphome {
 namespace sd_mmc_card {
 
