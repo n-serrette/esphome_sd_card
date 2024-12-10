@@ -25,6 +25,15 @@ sd_mmc_card:
 * **data2_pin**: (Optional, GPIO): data 2 pin, only use in 4bit mode
 * **data3_pin**: (Optional, GPIO): data 3 pin, only use in 4bit mode
 
+In case of connecting in 1-bit lane also known as SPI mode you can use table below to "convert" pin naming:
+
+|SPI naming|MMC naming|
+|--|--|
+|MISO|DATA0|
+|CLK/SCK|CLK|
+|MOSI|CMD|
+|SS/CS|DATA3|
+
 ## Actions
 
 ### Write file
