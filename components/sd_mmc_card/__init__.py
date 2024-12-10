@@ -41,9 +41,9 @@ def validate_raw_data(value):
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(SdMmc),
-        cv.Optional(CONF_CLK_PIN, default="GPIO14"): pins.gpio_output_pin_schema,
-        cv.Optional(CONF_CMD_PIN, default="GPIO15"): pins.gpio_output_pin_schema,
-        cv.Optional(CONF_DATA0_PIN, default="GPIO2"): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_CLK_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_CMD_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_DATA0_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_DATA1_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_DATA2_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_DATA3_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
