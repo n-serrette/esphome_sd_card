@@ -112,8 +112,7 @@ std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) 
   return list;
 }
 
-std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t depth,
-                                                                         std::vector<std::string> &list) {
+std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list) {
   ESP_LOGV(TAG, "Listing directory: %s\n", path);
 
   File root = SD_MMC.open(path);
@@ -177,4 +176,4 @@ void SdMmc::update_sensors() {
 }  // namespace sd_mmc_card
 }  // namespace esphome
 
-#endif // USE_ESP32_FRAMEWORK_ARDUINO
+#endif  // USE_ESP32_FRAMEWORK_ARDUINO
