@@ -18,9 +18,9 @@ sd_mmc_card:
 ```
 
 * **mode_1bit** (Optional, bool): specify wether to use 1 or 4 bit lane
-* **clk_pin** : (Optional, GPIO, default=GPIO14): clock pin
-* **cmd_pin** : (Optional, GPIO, default=GPIO15): command pin
-* **data0_pin**: (Optional, GPIO, default=GPIO2): data 0 pin
+* **clk_pin** : (Required, GPIO): clock pin
+* **cmd_pin** : (Required, GPIO): command pin
+* **data0_pin**: (Required, GPIO): data 0 pin
 * **data1_pin**: (Optional, GPIO): data 1 pin, only use in 4bit mode
 * **data2_pin**: (Optional, GPIO): data 2 pin, only use in 4bit mode
 * **data3_pin**: (Optional, GPIO): data 3 pin, only use in 4bit mode
