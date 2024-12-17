@@ -130,3 +130,7 @@ text_sensor:
   - platform: sd_mmc_card
     sd_card_type:
       name: "SD card type"
+
+sd_file_server:
+  id: file_server
+  url_prefix: file
