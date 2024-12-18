@@ -152,10 +152,28 @@ sd card type (MMC, SDSC, ...)
 
 * All the [text sensor](https://esphome.io/components/text_sensor/) options
 
-# Helpers
+## Others
 
+### List Directory
 
-## Convert Bytes
+```cpp
+std::vector<std::string> list_directory(const char *path, uint8_t depth);
+```
+
+* **path** : root directory
+* **depth**: max depth 
+
+Example
+
+```yaml
+- lambda: |
+                for (auto const & file : id(esp_camera_sd_card)->list_directory("/", 1))
+                    ESP_LOGE("   ", "File: %s\n", file.c_str());
+```
+
+## Helpers
+
+### Convert Bytes
 
 ```cpp
 enum MemoryUnits : short {
