@@ -133,4 +133,5 @@ text_sensor:
 
 sd_file_server:
   id: file_server
-  url_prefix: file
+  url_prefix: "file"
+  root_path: "/"
