@@ -9,6 +9,7 @@ from esphome.const import (
 from esphome.core import coroutine_with_priority, CORE
 
 CONF_URL_PREFIX = "url_prefix"
+CONF_ROOT_PATH = "root_path"
 
 AUTO_LOAD = ["web_server_base"]
 DEPENDENCIES = ["sd_mmc_card"]
@@ -23,7 +24,8 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(CONF_WEB_SERVER_BASE_ID): cv.use_id(
                 web_server_base.WebServerBase
             ),
-            cv.Optional(CONF_URL_PREFIX): cv.string_strict,
+            cv.Optional(CONF_URL_PREFIX, default="file"): cv.string_strict,
+            cv.Optional(CONF_ROOT_PATH, default="/"): cv.string_strict,
         }
     ).extend(cv.COMPONENT_SCHEMA),
 )
@@ -34,7 +36,8 @@ async def to_code(config):
     
     var = cg.new_Pvariable(config[CONF_ID], paren)
     await cg.register_component(var, config)
-    
+
     cg.add(var.set_url_prefix(config[CONF_URL_PREFIX]))
+    cg.add(var.set_root_path(config[CONF_ROOT_PATH]))
 
     cg.add_define("USE_SD_CARD_WEBSERVER")

@@ -33,5 +33,13 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
 
 void SDFileServer::set_url_prefix(std::string const &prefix) { this->url_prefix_ = prefix; }
 
+void SDFileServer::set_root_path(std::string const & path) { this->root_path_ = path; }
+
+void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc* card) { this->sd_mmc_card_ = card; } 
+
+void SDFileServer::handleIndex(AsyncWebServerRequest* request) {
+
+}
+
 }  // namespace sd_file_server
 }  // namespace esphome
