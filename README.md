@@ -158,6 +158,7 @@ sd card type (MMC, SDSC, ...)
 
 ```cpp
 std::vector<std::string> list_directory(const char *path, uint8_t depth);
+std::vector<std::string> list_directory(std::string path, uint8_t depth);
 ```
 
 * **path** : root directory

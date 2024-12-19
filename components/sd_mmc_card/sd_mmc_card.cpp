@@ -38,6 +38,10 @@ void SdMmc::dump_config() {
 #endif
 }
 
+std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) {
+  return this->list_directory(path.c_str(), depth);
+}
+
 size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
 
 bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
