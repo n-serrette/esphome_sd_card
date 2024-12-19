@@ -25,8 +25,10 @@ class SDFileServer : public Component, public AsyncWebHandler {
   std::string url_prefix_;
   std::string root_path_;
 
-  std::string buildPrefix() const;
-  void handleIndex(AsyncWebServerRequest *);
+  std::string build_prefix() const;
+  std::string extract_path_from_url(std::string const &) const;
+  std::string build_absolute_path(std::string) const;
+  void handle_index(AsyncWebServerRequest *);
 };
 
 }  // namespace sd_file_server

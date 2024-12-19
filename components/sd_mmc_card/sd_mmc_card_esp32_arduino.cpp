@@ -138,6 +138,15 @@ std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t de
   return list;
 }
 
+bool SdMmc::is_directory(const char *path) {
+  File root = SD_MMC.open(path);
+  if (!root) {
+    ESP_LOGE(TAG, "Failed to open directory");
+    return false;
+  }
+  return root.isDirectory();
+}
+
 size_t SdMmc::file_size(const char *path) {
   File file = SD_MMC.open(path);
   return file.size();
