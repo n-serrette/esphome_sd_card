@@ -50,6 +50,7 @@ class SdMmc : public Component {
   bool is_directory(const char *path);
   bool is_directory(std::string const &path);
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
+  std::vector<std::string> list_directory(std::string path, uint8_t depth);
   size_t file_size(const char *path);
   size_t file_size(std::string const &path);
 #ifdef USE_SENSOR
@@ -71,7 +72,7 @@ class SdMmc : public Component {
   GPIOPin *data1_pin_;
   GPIOPin *data2_pin_;
   GPIOPin *data3_pin_;
-  bool mode_1bit_{false};
+  bool mode_1bit_;
 
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
