@@ -17,6 +17,7 @@ void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address().c_str(), this->base_->get_port());
   ESP_LOGCONFIG(TAG, "  Url Prefix: %s", this->url_prefix_.c_str());
   ESP_LOGCONFIG(TAG, "  Root Path: %s", this->root_path_.c_str());
+  ESP_LOGCONFIG(TAG, "  Deletation Enabled: %s", TRUEFALSE(this->deletion_enabled_));
 }
 
 bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
@@ -29,8 +30,13 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   ESP_LOGD(TAG, "%s", request->url().c_str());
   if (str_startswith(std::string(request->url().c_str()), this->build_prefix())) {
     if (request->method() == HTTP_GET) {
-    this->handle_index(request);
-    return;
+      this->handle_index(request);
+      return;
+    }
+    if (request->method() == HTTP_DELETE) {
+      this->handle_delete(request);
+      return;
+    }
   }
 }
 
@@ -39,6 +45,8 @@ void SDFileServer::set_url_prefix(std::string const &prefix) { this->url_prefix_
 void SDFileServer::set_root_path(std::string const &path) { this->root_path_ = path; }
 
 void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card_ = card; }
+
+void SDFileServer::set_deletion_enabled(bool allow) { this->deletion_enabled_ = allow; }
 
 std::string remove_root_path(std::string path, std::string const &root) {
   if (!str_startswith(path, root))
@@ -74,7 +82,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request) {
     response->print("\">");
     response->print(Path::file_name(entry).c_str());
     response->print("</a>");
-    if (!this->sd_mmc_card_->is_directory(entry)) {
+    if (this->deletion_enabled_ && !this->sd_mmc_card_->is_directory(entry)) {
       response->print("<button onClick=\"fetch('");
       response->print(uri.c_str());
       response->print("', {method: 'DELETE'})\">Delete</button>");
@@ -96,6 +104,24 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request) {
   auto *response = request->beginResponseStream("application/octet", file.size());
   response->write(file.data(), file.size());
   request->send(response);
+}
+
+void SDFileServer::handle_delete(AsyncWebServerRequest *request) {
+  if (!this->deletion_enabled_) {
+    request->send(401, "application/json", "{ \"error\": \"file deletion is disabled\" }");
+    return;
+  }
+  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
+  std::string path = this->build_absolute_path(extracted);
+  if (this->sd_mmc_card_->is_directory(path)) {
+    request->send(401, "application/json", "{ \"error\": \"cannot delete a directory\" }");
+    return;
+  }
+  if (this->sd_mmc_card_->delete_file(path)) {
+    request->send(204, "application/json", "{}");
+    return;
+  }
+  request->send(401, "application/json", "{ \"error\": \"failed to delete file\" }");
 }
 
 std::string SDFileServer::build_prefix() const {
