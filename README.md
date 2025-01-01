@@ -167,8 +167,55 @@ Example
 
 ```yaml
 - lambda: |
-                for (auto const & file : id(esp_camera_sd_card)->list_directory("/", 1))
-                    ESP_LOGE("   ", "File: %s\n", file.c_str());
+  for (auto const & file : id(esp_camera_sd_card)->list_directory("/", 1))
+    ESP_LOGE("   ", "File: %s\n", file.c_str());
+```
+
+### Is Directory
+
+```cpp
+bool is_directory(const char *path);
+bool is_directory(std::string const &path);
+```
+
+* **path**: directory to test path
+
+Example
+
+```yaml
+- lambda: return id(esp_camera_sd_card)->is_directory("/folder");
+```
+
+### File Size
+
+```cpp
+size_t file_size(const char *path);
+size_t file_size(std::string const &path);
+```
+
+* **path**: file path
+
+Example
+
+```yaml
+- lambda: return id(esp_camera_sd_card)->file_size("/file");
+```
+
+### Read File
+
+```cpp
+std::vector<uint8_t> read_file(char const *path);
+std::vector<uint8_t> read_file(std::string const &path);
+```
+
+Return the whole file as a vector, trying to read large file will saturate the esp memory
+
+* **path**: file path
+
+Example
+
+```yaml
+- lambda: return id(esp_camera_sd_card)->read_file("/file");
 ```
 
 ## Helpers

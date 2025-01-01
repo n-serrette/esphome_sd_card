@@ -106,6 +106,22 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
+std::vector<uint8_t> SdMmc::read_file(char const *path) {
+  ESP_LOGV(TAG, "Read File: %s", path);
+  File file = SD_MMC.open(path);
+  if (!file) {
+    ESP_LOGE(TAG, "Failed to open file for reading");
+    return std::vector<uint8_t>();
+  }
+
+  std::vector<uint8_t> res;
+  res.reserve(file.size());
+  while (file.available()) {
+    res.push_back(file.read());
+  }
+  return res;
+}
+
 std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   list_directory_rec(path, depth, list);
@@ -136,6 +152,15 @@ std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t de
     file = root.openNextFile();
   }
   return list;
+}
+
+bool SdMmc::is_directory(const char *path) {
+  File root = SD_MMC.open(path);
+  if (!root) {
+    ESP_LOGE(TAG, "Failed to open directory");
+    return false;
+  }
+  return root.isDirectory();
 }
 
 size_t SdMmc::file_size(const char *path) {

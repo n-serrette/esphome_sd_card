@@ -42,8 +42,13 @@ class SdMmc : public Component {
   void write_file(const char *path, const uint8_t *buffer, size_t len);
   void append_file(const char *path, const uint8_t *buffer, size_t len);
   bool delete_file(const char *path);
+  bool delete_file(std::string const &path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
+  std::vector<uint8_t> read_file(char const *path);
+  std::vector<uint8_t> read_file(std::string const &path);
+  bool is_directory(const char *path);
+  bool is_directory(std::string const &path);
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
   size_t file_size(const char *path);
   size_t file_size(std::string const &path);

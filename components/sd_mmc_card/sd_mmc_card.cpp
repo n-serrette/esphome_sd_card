@@ -40,6 +40,12 @@ void SdMmc::dump_config() {
 
 size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
 
+bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
+
+bool SdMmc::delete_file(std::string const &path) { return this->delete_file(path.c_str()); }
+
+std::vector<uint8_t> SdMmc::read_file(std::string const &path) { return this->read_file(path.c_str()); }
+
 #ifdef USE_SENSOR
 void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
   this->file_size_sensors_.emplace_back(sensor, path);
