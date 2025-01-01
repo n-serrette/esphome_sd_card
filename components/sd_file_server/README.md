@@ -13,3 +13,7 @@ sd_file_server:
 
 * **url_prefix**: (Optional, string, default="file") : url prefix to acces the file page
 * **root_path**: (Optional, string, default="/"): sd card file system root
+
+# Notes
+
+* Trying to download large file will saturate the memory of the esp and make it crash

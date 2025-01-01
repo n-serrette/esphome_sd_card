@@ -28,6 +28,7 @@ bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
 void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   ESP_LOGD(TAG, "%s", request->url().c_str());
   if (str_startswith(std::string(request->url().c_str()), this->build_prefix())) {
+    if (request->method() == HTTP_GET) {
     this->handle_index(request);
     return;
   }
@@ -39,6 +40,14 @@ void SDFileServer::set_root_path(std::string const &path) { this->root_path_ = p
 
 void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card_ = card; }
 
+std::string remove_root_path(std::string path, std::string const &root) {
+  if (!str_startswith(path, root))
+    return path;
+  if (path.size() == root.size() || path.size() < 2)
+    return "/";
+  return path.erase(0, root.size());
+}
+
 void SDFileServer::handle_index(AsyncWebServerRequest *request) {
   auto *response = request->beginResponseStream("text/html");
   response->print("<h1>SD Card Content</h1>");
@@ -47,21 +56,45 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request) {
   std::string path = this->build_absolute_path(extracted);
 
   if (!this->sd_mmc_card_->is_directory(path)) {
-    response->print(path.c_str());
-    response->print(" is not a folder");
-    request->send(response);
+    handle_download(request);
     return;
   }
+
   response->print("<h2>Folder ");
   response->print(path.c_str());
   response->print("</h2><div>");
+  response->print("<a href=\"/");
+  response->print(this->url_prefix_.c_str());
+  response->print("\">Home</a></br></br>");
   auto entries = this->sd_mmc_card_->list_directory(path, 0);
   for (auto const &entry : entries) {
-    response->print("<span>");
-    response->print(entry.c_str());
-    response->print("</span></br>");
+    std::string uri = "/" + Path::join(this->url_prefix_, remove_root_path(entry, this->root_path_));
+    response->print("<div><a href=\"");
+    response->print(uri.c_str());
+    response->print("\">");
+    response->print(Path::file_name(entry).c_str());
+    response->print("</a>");
+    if (!this->sd_mmc_card_->is_directory(entry)) {
+      response->print("<button onClick=\"fetch('");
+      response->print(uri.c_str());
+      response->print("', {method: 'DELETE'})\">Delete</button>");
+    }
+    response->print("</div>");
   }
   response->print("</div>");
+  request->send(response);
+}
+
+void SDFileServer::handle_download(AsyncWebServerRequest *request) {
+  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
+  std::string path = this->build_absolute_path(extracted);
+  auto file = this->sd_mmc_card_->read_file(path);
+  if (file.size() == 0) {
+    request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
+    return;
+  }
+  auto *response = request->beginResponseStream("application/octet", file.size());
+  response->write(file.data(), file.size());
   request->send(response);
 }
 
@@ -80,18 +113,32 @@ std::string SDFileServer::build_absolute_path(std::string relative_path) const {
   if (relative_path.size() == 0)
     return this->root_path_;
 
-  bool root_end_with_slash = this->root_path_.size() > 0 && this->root_path_.at(this->root_path_.size() - 1) == '/';
-  bool relative_path_start_with_slash = relative_path.at(0) == '/';
+  std::string absolute = Path::join(this->root_path_, relative_path);
+  return absolute;
+}
 
-  if (root_end_with_slash && relative_path_start_with_slash) {
-    relative_path.erase(0, 1);
-    return this->root_path_ + relative_path;
+std::string Path::file_name(std::string const &path) {
+  size_t pos = path.rfind(Path::separator);
+  if (pos != std::string::npos) {
+    return path.substr(pos + 1);
   }
+  return "";
+}
 
-  if (!root_end_with_slash && !relative_path_start_with_slash)
-    return this->root_path_ + "/" + relative_path;
+bool Path::is_absolute(std::string const &path) { return path.size() && path[0] == separator; }
 
-  return this->root_path_ + relative_path;
+bool Path::trailing_slash(std::string const &path) { return path.size() && path[path.length() - 1] == separator; }
+
+std::string Path::join(std::string const &first, std::string const &second) {
+  std::string result = first;
+  if (!trailing_slash(first) && !is_absolute(second)) {
+    result.push_back(separator);
+  }
+  if (trailing_slash(first) && is_absolute(second)) {
+    result.pop_back();
+  }
+  result.append(second);
+  return result;
 }
 
 }  // namespace sd_file_server
