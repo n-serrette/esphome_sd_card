@@ -29,6 +29,23 @@ class SDFileServer : public Component, public AsyncWebHandler {
   std::string extract_path_from_url(std::string const &) const;
   std::string build_absolute_path(std::string) const;
   void handle_index(AsyncWebServerRequest *);
+  void handle_download(AsyncWebServerRequest *);
+};
+
+struct Path {
+  static constexpr char separator = '/';
+
+  /* Return the name of the file */
+  static std::string file_name(std::string const &);
+
+  /* Is the path an absolute path? */
+  static bool is_absolute(std::string const &);
+
+  /* Does the path have a trailing slash? */
+  static bool trailing_slash(std::string const &);
+
+  /* Join two path */
+  static std::string join(std::string const &, std::string const &);
 };
 
 }  // namespace sd_file_server
