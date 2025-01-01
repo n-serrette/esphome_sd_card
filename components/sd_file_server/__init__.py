@@ -10,6 +10,7 @@ from .. import sd_mmc_card
 
 CONF_URL_PREFIX = "url_prefix"
 CONF_ROOT_PATH = "root_path"
+CONF_ENABLE_DELETION = "enable_deletion"
 
 AUTO_LOAD = ["web_server_base"]
 DEPENDENCIES = ["sd_mmc_card"]
@@ -27,6 +28,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(sd_mmc_card.CONF_SD_MMC_CARD_ID): cv.use_id(sd_mmc_card.SdMmc),
             cv.Optional(CONF_URL_PREFIX, default="file"): cv.string_strict,
             cv.Optional(CONF_ROOT_PATH, default="/"): cv.string_strict,
+            cv.Optional(CONF_ENABLE_DELETION, default=False): cv.boolean,
         }
     ).extend(cv.COMPONENT_SCHEMA),
 )
@@ -41,5 +43,6 @@ async def to_code(config):
     cg.add(var.set_sd_mmc_card(sdmmc))
     cg.add(var.set_url_prefix(config[CONF_URL_PREFIX]))
     cg.add(var.set_root_path(config[CONF_ROOT_PATH]))
+    cg.add(var.set_deletion_enabled(config[CONF_ENABLE_DELETION]))
 
     cg.add_define("USE_SD_CARD_WEBSERVER")
