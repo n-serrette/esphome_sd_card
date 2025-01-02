@@ -27,6 +27,14 @@ struct FileSizeSensor {
 };
 #endif
 
+struct FileInfo {
+  std::string path;
+  size_t size;
+  bool is_directory;
+
+  FileInfo(std::string const &, size_t, bool);
+};
+
 class SdMmc : public Component {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
@@ -51,6 +59,8 @@ class SdMmc : public Component {
   bool is_directory(std::string const &path);
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
   std::vector<std::string> list_directory(std::string path, uint8_t depth);
+  std::vector<FileInfo> list_directory_file_info(const char *path, uint8_t depth);
+  std::vector<FileInfo> list_directory_file_info(std::string path, uint8_t depth);
   size_t file_size(const char *path);
   size_t file_size(std::string const &path);
 #ifdef USE_SENSOR
@@ -80,6 +90,7 @@ class SdMmc : public Component {
   void update_sensors();
   std::string sd_card_type_to_string(int) const;
   std::vector<std::string> &list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list);
+  std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
 };
 
 template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {

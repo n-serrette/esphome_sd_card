@@ -172,6 +172,32 @@ Example
     ESP_LOGE("   ", "File: %s\n", file.c_str());
 ```
 
+### List Directory File Info
+
+```cpp
+struct FileInfo {
+  std::string path;
+  size_t size;
+  bool is_directory;
+
+  FileInfo(std::string const &, size_t, bool);
+};
+
+std::vector<FileInfo> list_directory_file_info(const char *path, uint8_t depth);
+std::vector<FileInfo> list_directory_file_info(std::string path, uint8_t depth);
+```
+
+* **path** : root directory
+* **depth**: max depth 
+
+Example
+
+```yaml
+- lambda: |
+  for (auto const & file : id(esp_camera_sd_card)->list_directory_file_info("/", 1))
+    ESP_LOGE("   ", "File: %s, size: %d\n", file.path.c_str(), file.size);
+```
+
 ### Is Directory
 
 ```cpp

@@ -154,6 +154,39 @@ std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t de
   return list;
 }
 
+std::vector<FileInfo> SdMmc::list_directory_file_info(const char *path, uint8_t depth) {
+  std::vector<FileInfo> list;
+  list_directory_file_info_rec(path, depth, list);
+  return list;
+}
+
+std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
+                                                           std::vector<FileInfo> &list) {
+  ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
+
+  File root = SD_MMC.open(path);
+  if (!root) {
+    ESP_LOGE(TAG, "Failed to open directory");
+    return list;
+  }
+  if (!root.isDirectory()) {
+    ESP_LOGE(TAG, "Not a directory");
+    return list;
+  }
+
+  File file = root.openNextFile();
+  while (file) {
+    list.emplace_back(file.path(), file.size(), file.isDirectory());
+    if (file.isDirectory()) {
+      if (depth) {
+        list_directory_file_info_rec(file.path(), depth - 1, list);
+      }
+    }
+    file = root.openNextFile();
+  }
+  return list;
+}
+
 bool SdMmc::is_directory(const char *path) {
   File root = SD_MMC.open(path);
   if (!root) {
