@@ -42,6 +42,10 @@ std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) 
   return this->list_directory(path.c_str(), depth);
 }
 
+std::vector<FileInfo> SdMmc::list_directory_file_info(std::string path, uint8_t depth) {
+  return this->list_directory_file_info(path.c_str(), depth);
+}
+
 size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
 
 bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
@@ -81,6 +85,9 @@ int Utility::get_pin_no(GPIOPin *pin) {
 long double convertBytes(uint64_t value, MemoryUnits unit) {
   return value * 1.0 / pow(1024, static_cast<uint64_t>(unit));
 }
+
+FileInfo::FileInfo(std::string const &path, size_t size, bool is_directory)
+    : path(path), size(size), is_directory(is_directory) {}
 
 }  // namespace sd_mmc_card
 }  // namespace esphome
