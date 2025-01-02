@@ -30,9 +30,11 @@ class SDFileServer : public Component, public AsyncWebHandler {
   std::string build_prefix() const;
   std::string extract_path_from_url(std::string const &) const;
   std::string build_absolute_path(std::string) const;
-  void handle_index(AsyncWebServerRequest *);
+  void write_row(AsyncResponseStream *response, sd_mmc_card::FileInfo const &info) const;
+  void handle_index(AsyncWebServerRequest *) const;
+  void handle_get(AsyncWebServerRequest *) const;
   void handle_delete(AsyncWebServerRequest *);
-  void handle_download(AsyncWebServerRequest *);
+  void handle_download(AsyncWebServerRequest *) const;
 };
 
 struct Path {
@@ -49,6 +51,8 @@ struct Path {
 
   /* Join two path */
   static std::string join(std::string const &, std::string const &);
+
+  static std::string remove_root_path(std::string path, std::string const &root);
 };
 
 }  // namespace sd_file_server

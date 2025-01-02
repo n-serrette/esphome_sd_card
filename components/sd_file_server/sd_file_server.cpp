@@ -30,7 +30,7 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   ESP_LOGD(TAG, "%s", request->url().c_str());
   if (str_startswith(std::string(request->url().c_str()), this->build_prefix())) {
     if (request->method() == HTTP_GET) {
-      this->handle_index(request);
+      this->handle_get(request);
       return;
     }
     if (request->method() == HTTP_DELETE) {
@@ -48,18 +48,7 @@ void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card
 
 void SDFileServer::set_deletion_enabled(bool allow) { this->deletion_enabled_ = allow; }
 
-std::string remove_root_path(std::string path, std::string const &root) {
-  if (!str_startswith(path, root))
-    return path;
-  if (path.size() == root.size() || path.size() < 2)
-    return "/";
-  return path.erase(0, root.size());
-}
-
-void SDFileServer::handle_index(AsyncWebServerRequest *request) {
-  auto *response = request->beginResponseStream("text/html");
-  response->print("<h1>SD Card Content</h1>");
-
+void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
@@ -68,32 +57,76 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request) {
     return;
   }
 
-  response->print("<h2>Folder ");
-  response->print(path.c_str());
-  response->print("</h2><div>");
-  response->print("<a href=\"/");
-  response->print(this->url_prefix_.c_str());
-  response->print("\">Home</a></br></br>");
-  auto entries = this->sd_mmc_card_->list_directory(path, 0);
-  for (auto const &entry : entries) {
-    std::string uri = "/" + Path::join(this->url_prefix_, remove_root_path(entry, this->root_path_));
-    response->print("<div><a href=\"");
+  handle_index(request);
+}
+
+void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInfo const &info) const {
+  std::string uri = "/" + Path::join(this->url_prefix_, Path::remove_root_path(info.path, this->root_path_));
+  std::string file_name = Path::file_name(info.path);
+  response->print("<tr><td>");
+  if (info.is_directory) {
+    response->print("<a href=\"");
     response->print(uri.c_str());
     response->print("\">");
-    response->print(Path::file_name(entry).c_str());
+    response->print(file_name.c_str());
     response->print("</a>");
-    if (this->deletion_enabled_ && !this->sd_mmc_card_->is_directory(entry)) {
-      response->print("<button onClick=\"fetch('");
-      response->print(uri.c_str());
-      response->print("', {method: 'DELETE'})\">Delete</button>");
-    }
-    response->print("</div>");
+  } else {
+    response->print(file_name.c_str());
   }
-  response->print("</div>");
+  response->print("</td><td>");
+  if (!info.is_directory) {
+    response->print("<button onClick=\"download_file('");
+    response->print(uri.c_str());
+    response->print("','");
+    response->print(file_name.c_str());
+    response->print("')\">Download</button>");
+    if (this->deletion_enabled_) {
+      response->print("<button onClick=\"delete_file('");
+      response->print(uri.c_str());
+      response->print("')\">Delete</button>");
+    }
+  }
+  response->print("</td></tr>");
+}
+
+void SDFileServer::handle_index(AsyncWebServerRequest *request) const {
+  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
+  std::string path = this->build_absolute_path(extracted);
+
+  AsyncResponseStream *response = request->beginResponseStream("text/html");
+
+  response->print(F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=UTF-8><meta "
+                    "name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\">"
+                    "</head><body>"
+                    "<h1>SD Card Content</h1><h2>Folder "));
+
+  response->print(path.c_str());
+  response->print(F("</h2><a href=\"/"));
+  response->print(this->url_prefix_.c_str());
+  response->print(F("\">Home</a></br></br><table id=\"files\"><thead><tr><th>Name<th>Actions<tbody>"));
+  auto entries = this->sd_mmc_card_->list_directory_file_info(path, 0);
+  for (auto const &entry : entries)
+    write_row(response, entry);
+
+  response->print(F("</tbody></table>"
+                    "<script>"
+                    "function delete_file(path) {fetch(path, {method: \"DELETE\"});}"
+                    "function download_file(path, filename) {"
+                    "fetch(path).then(response => response.blob())"
+                    ".then(blob => {"
+                    "const link = document.createElement('a');"
+                    "link.href = URL.createObjectURL(blob);"
+                    "link.download = filename;"
+                    "link.click();"
+                    "}).catch(console.error);"
+                    "} "
+                    "</script>"
+                    "</body></html>"));
+
   request->send(response);
 }
 
-void SDFileServer::handle_download(AsyncWebServerRequest *request) {
+void SDFileServer::handle_download(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
   auto file = this->sd_mmc_card_->read_file(path);
@@ -165,6 +198,14 @@ std::string Path::join(std::string const &first, std::string const &second) {
   }
   result.append(second);
   return result;
+}
+
+std::string Path::remove_root_path(std::string path, std::string const &root) {
+  if (!str_startswith(path, root))
+    return path;
+  if (path.size() == root.size() || path.size() < 2)
+    return "/";
+  return path.erase(0, root.size());
 }
 
 }  // namespace sd_file_server
