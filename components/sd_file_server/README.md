@@ -10,11 +10,13 @@ sd_file_server:
   url_prefix: file
   root_path: "/"
   enable_deletion: true
+  enable_download: true
 ```
 
 * **url_prefix**: (Optional, string, default="file") : url prefix to acces the file page
 * **root_path**: (Optional, string, default="/"): sd card file system root
 * **enable_deletion**: (Optional, boolean, default=False): enable file deletion from the web page or api
+* **enable_download**: (Optional, boolean, default=False): enable file download from the web page or api
 
 # Notes
 

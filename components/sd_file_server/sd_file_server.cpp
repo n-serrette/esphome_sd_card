@@ -18,6 +18,7 @@ void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "  Url Prefix: %s", this->url_prefix_.c_str());
   ESP_LOGCONFIG(TAG, "  Root Path: %s", this->root_path_.c_str());
   ESP_LOGCONFIG(TAG, "  Deletation Enabled: %s", TRUEFALSE(this->deletion_enabled_));
+  ESP_LOGCONFIG(TAG, "  Download Enabled : %s", TRUEFALSE(this->download_enabled_));
 }
 
 bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
@@ -48,16 +49,18 @@ void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card
 
 void SDFileServer::set_deletion_enabled(bool allow) { this->deletion_enabled_ = allow; }
 
+void SDFileServer::set_download_enabled(bool allow) { this->download_enabled_ = allow; }
+
 void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
   if (!this->sd_mmc_card_->is_directory(path)) {
-    handle_download(request);
+    handle_download(request, path);
     return;
   }
 
-  handle_index(request);
+  handle_index(request, path);
 }
 
 void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInfo const &info) const {
@@ -75,11 +78,13 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
   }
   response->print("</td><td>");
   if (!info.is_directory) {
-    response->print("<button onClick=\"download_file('");
-    response->print(uri.c_str());
-    response->print("','");
-    response->print(file_name.c_str());
-    response->print("')\">Download</button>");
+    if (this->download_enabled_) {
+      response->print("<button onClick=\"download_file('");
+      response->print(uri.c_str());
+      response->print("','");
+      response->print(file_name.c_str());
+      response->print("')\">Download</button>");
+    }
     if (this->deletion_enabled_) {
       response->print("<button onClick=\"delete_file('");
       response->print(uri.c_str());
@@ -89,10 +94,7 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
   response->print("</td></tr>");
 }
 
-void SDFileServer::handle_index(AsyncWebServerRequest *request) const {
-  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
-  std::string path = this->build_absolute_path(extracted);
-
+void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string const &path) const {
   AsyncResponseStream *response = request->beginResponseStream("text/html");
 
   response->print(F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=UTF-8><meta "
@@ -126,9 +128,12 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request) const {
   request->send(response);
 }
 
-void SDFileServer::handle_download(AsyncWebServerRequest *request) const {
-  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
-  std::string path = this->build_absolute_path(extracted);
+void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string const &path) const {
+  if (!this->download_enabled_) {
+    request->send(401, "application/json", "{ \"error\": \"file download is disabled\" }");
+    return;
+  }
+
   auto file = this->sd_mmc_card_->read_file(path);
   if (file.size() == 0) {
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
