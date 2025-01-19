@@ -41,6 +41,36 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   }
 }
 
+void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data,
+                                size_t len, bool final) {
+  if (!this->upload_enabled_) {
+    request->send(401, "application/json", "{ \"error\": \"file upload is disabled\" }");
+    return;
+  }
+  std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
+  std::string path = this->build_absolute_path(extracted);
+
+  if (index == 0 && !this->sd_mmc_card_->is_directory(path)) {
+    auto response = request->beginResponse(401, "application/json", "{ \"error\": \"invalid upload folder\" }");
+    response->addHeader("Connection", "close");
+    request->send(response);
+    return;
+  }
+  std::string file_name(filename.c_str());
+  if (index == 0) {
+    ESP_LOGD(TAG, "uploading file %s to %s", file_name.c_str(), path.c_str());
+    this->sd_mmc_card_->write_file(Path::join(path, file_name).c_str(), data, len);
+    return;
+  }
+  this->sd_mmc_card_->append_file(Path::join(path, file_name).c_str(), data, len);
+  if (final) {
+    auto response = request->beginResponse(201, "text/html", "upload success");
+    response->addHeader("Connection", "close");
+    request->send(response);
+    return;
+  }
+}
+
 void SDFileServer::set_url_prefix(std::string const &prefix) { this->url_prefix_ = prefix; }
 
 void SDFileServer::set_root_path(std::string const &path) { this->root_path_ = path; }
@@ -50,6 +80,8 @@ void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card
 void SDFileServer::set_deletion_enabled(bool allow) { this->deletion_enabled_ = allow; }
 
 void SDFileServer::set_download_enabled(bool allow) { this->download_enabled_ = allow; }
+
+void SDFileServer::set_upload_enabled(bool allow) { this->upload_enabled_ = allow; }
 
 void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
@@ -96,14 +128,17 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
 
 void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string const &path) const {
   AsyncResponseStream *response = request->beginResponseStream("text/html");
-
   response->print(F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=UTF-8><meta "
                     "name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\">"
                     "</head><body>"
                     "<h1>SD Card Content</h1><h2>Folder "));
 
   response->print(path.c_str());
-  response->print(F("</h2><a href=\"/"));
+  response->print(F("</h2>"));
+  if (this->upload_enabled_)
+    response->print(F("<form method=\"POST\" enctype=\"multipart/form-data\">"
+                      "<input type=\"file\" name=\"file\"><input type=\"submit\" value=\"upload\"></form>"));
+  response->print(F("<a href=\"/"));
   response->print(this->url_prefix_.c_str());
   response->print(F("\">Home</a></br></br><table id=\"files\"><thead><tr><th>Name<th>Actions<tbody>"));
   auto entries = this->sd_mmc_card_->list_directory_file_info(path, 0);

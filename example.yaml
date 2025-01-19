@@ -5,6 +5,7 @@ esp32:
   board: esp32dev
   framework:
     type: arduino
+    version: 2.0.17
 
 external_components:
   - source: components
@@ -135,3 +136,6 @@ sd_file_server:
   id: file_server
   url_prefix: "file"
   root_path: "/"
+  enable_deletion: true
+  enable_download: true
+  enable_upload: true
