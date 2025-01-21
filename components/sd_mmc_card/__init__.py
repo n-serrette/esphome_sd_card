@@ -41,12 +41,12 @@ def validate_raw_data(value):
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(SdMmc),
-        cv.Required(CONF_CLK_PIN): pins.gpio_output_pin_schema,
-        cv.Required(CONF_CMD_PIN): pins.gpio_output_pin_schema,
-        cv.Required(CONF_DATA0_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
-        cv.Optional(CONF_DATA1_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
-        cv.Optional(CONF_DATA2_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
-        cv.Optional(CONF_DATA3_PIN): pins.gpio_pin_schema({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Required(CONF_CLK_PIN): pins.internal_gpio_output_pin_number,
+        cv.Required(CONF_CMD_PIN): pins.internal_gpio_output_pin_number,
+        cv.Required(CONF_DATA0_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA1_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA2_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
+        cv.Optional(CONF_DATA3_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -58,24 +58,14 @@ async def to_code(config):
 
     cg.add(var.set_mode_1bit(config[CONF_MODE_1BIT]))
 
-    clk = await cg.gpio_pin_expression(config[CONF_CLK_PIN])
-    cg.add(var.set_clk_pin(clk))
-
-    cmd = await cg.gpio_pin_expression(config[CONF_CMD_PIN])
-    cg.add(var.set_cmd_pin(cmd))
-
-    data0 = await cg.gpio_pin_expression(config[CONF_DATA0_PIN])
-    cg.add(var.set_data0_pin(data0))
+    cg.add(var.set_clk_pin(config[CONF_CLK_PIN]))
+    cg.add(var.set_cmd_pin(config[CONF_CMD_PIN]))
+    cg.add(var.set_data0_pin(config[CONF_DATA0_PIN]))
 
     if (config[CONF_MODE_1BIT] == False):
-        data1 = await cg.gpio_pin_expression(config[CONF_DATA1_PIN])
-        cg.add(var.set_data1_pin(data1))
-
-        data2 = await cg.gpio_pin_expression(config[CONF_DATA2_PIN])
-        cg.add(var.set_data2_pin(data2))
-
-        data3 = await cg.gpio_pin_expression(config[CONF_DATA3_PIN])
-        cg.add(var.set_data3_pin(data3))
+        cg.add(var.set_data1_pin(config[CONF_DATA1_PIN]))
+        cg.add(var.set_data2_pin(config[CONF_DATA2_PIN]))
+        cg.add(var.set_data3_pin(config[CONF_DATA3_PIN]))
 
     if CORE.using_arduino:
         if CORE.is_esp32:

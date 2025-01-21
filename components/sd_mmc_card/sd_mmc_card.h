@@ -72,22 +72,22 @@ class SdMmc : public Component {
   void add_file_size_sensor(sensor::Sensor *, std::string const &path);
 #endif
 
-  void set_clk_pin(GPIOPin *);
-  void set_cmd_pin(GPIOPin *);
-  void set_data0_pin(GPIOPin *);
-  void set_data1_pin(GPIOPin *);
-  void set_data2_pin(GPIOPin *);
-  void set_data3_pin(GPIOPin *);
+  void set_clk_pin(uint8_t);
+  void set_cmd_pin(uint8_t);
+  void set_data0_pin(uint8_t);
+  void set_data1_pin(uint8_t);
+  void set_data2_pin(uint8_t);
+  void set_data3_pin(uint8_t);
   void set_mode_1bit(bool);
 
  protected:
   ErrorCode init_error_;
-  GPIOPin *clk_pin_;
-  GPIOPin *cmd_pin_;
-  GPIOPin *data0_pin_;
-  GPIOPin *data1_pin_;
-  GPIOPin *data2_pin_;
-  GPIOPin *data3_pin_;
+  uint8_t clk_pin_;
+  uint8_t cmd_pin_;
+  uint8_t data0_pin_;
+  uint8_t data1_pin_;
+  uint8_t data2_pin_;
+  uint8_t data3_pin_;
   bool mode_1bit_;
 
 #ifdef USE_SENSOR
@@ -172,10 +172,6 @@ template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
 
  protected:
   SdMmc *parent_;
-};
-
-struct Utility {
-  static int get_pin_no(GPIOPin *);
 };
 
 long double convertBytes(uint64_t, MemoryUnits);

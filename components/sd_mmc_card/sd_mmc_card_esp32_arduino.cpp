@@ -13,12 +13,9 @@ namespace sd_mmc_card {
 static const char *TAG = "sd_mmc_card_esp32_arduino";
 
 void SdMmc::setup() {
-  bool setPinResult =
-      this->mode_1bit_ ? SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
-                                        Utility::get_pin_no(this->data0_pin_))
-                       : SD_MMC.setPins(Utility::get_pin_no(this->clk_pin_), Utility::get_pin_no(this->cmd_pin_),
-                                        Utility::get_pin_no(this->data0_pin_), Utility::get_pin_no(this->data1_pin_),
-                                        Utility::get_pin_no(this->data2_pin_), Utility::get_pin_no(this->data3_pin_));
+  bool setPinResult = this->mode_1bit_ ? SD_MMC.setPins(this->clk_pin_, this->cmd_pin_, this->data0_pin_)
+                                       : SD_MMC.setPins(this->clk_pin_, this->cmd_pin_, this->data0_pin_,
+                                                        this->data1_pin_, this->data2_pin_, this->data3_pin_);
 
   if (!setPinResult) {
     this->init_error_ = ErrorCode::ERR_PIN_SETUP;

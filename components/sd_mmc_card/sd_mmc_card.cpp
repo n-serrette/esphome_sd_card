@@ -16,14 +16,14 @@ void SdMmc::loop() {}
 
 void SdMmc::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
-  ESP_LOGCONFIG(TAG, "Mode 1 bit: %d", this->mode_1bit_);
-  LOG_PIN("  CLK Pin: ", this->clk_pin_);
-  LOG_PIN("  CMD Pin: ", this->cmd_pin_);
-  LOG_PIN("  DATA0 Pin: ", this->data0_pin_);
+  ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
+  ESP_LOGCONFIG(TAG, "  CLK Pin: %d", this->clk_pin_);
+  ESP_LOGCONFIG(TAG, "  CMD Pin: %d", this->cmd_pin_);
+  ESP_LOGCONFIG(TAG, "  DATA0 Pin: %d", this->data0_pin_);
   if (!this->mode_1bit_) {
-    LOG_PIN("  DATA1 Pin: ", this->data1_pin_);
-    LOG_PIN("  DATA2 Pin: ", this->data2_pin_);
-    LOG_PIN("  DATA3 Pin: ", this->data3_pin_);
+    ESP_LOGCONFIG(TAG, "  DATA1 Pin: %d", this->data1_pin_);
+    ESP_LOGCONFIG(TAG, "  DATA2 Pin: %d", this->data2_pin_);
+    ESP_LOGCONFIG(TAG, "  DATA3 Pin: %d", this->data3_pin_);
   }
 #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
@@ -65,17 +65,17 @@ void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path
 }
 #endif
 
-void SdMmc::set_clk_pin(GPIOPin *pin) { this->clk_pin_ = pin; }
+void SdMmc::set_clk_pin(uint8_t pin) { this->clk_pin_ = pin; }
 
-void SdMmc::set_cmd_pin(GPIOPin *pin) { this->cmd_pin_ = pin; }
+void SdMmc::set_cmd_pin(uint8_t pin) { this->cmd_pin_ = pin; }
 
-void SdMmc::set_data0_pin(GPIOPin *pin) { this->data0_pin_ = pin; }
+void SdMmc::set_data0_pin(uint8_t pin) { this->data0_pin_ = pin; }
 
-void SdMmc::set_data1_pin(GPIOPin *pin) { this->data1_pin_ = pin; }
+void SdMmc::set_data1_pin(uint8_t pin) { this->data1_pin_ = pin; }
 
-void SdMmc::set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
+void SdMmc::set_data2_pin(uint8_t pin) { this->data2_pin_ = pin; }
 
-void SdMmc::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
+void SdMmc::set_data3_pin(uint8_t pin) { this->data3_pin_ = pin; }
 
 void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
 
@@ -90,13 +90,6 @@ std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
     default:
       return "Unknown error";
   }
-}
-int Utility::get_pin_no(GPIOPin *pin) {
-  if (pin == nullptr || !pin->is_internal())
-    return -1;
-  if (((InternalGPIOPin *) pin)->is_inverted())
-    return -1;
-  return ((InternalGPIOPin *) pin)->get_pin();
 }
 
 long double convertBytes(uint64_t value, MemoryUnits unit) {
