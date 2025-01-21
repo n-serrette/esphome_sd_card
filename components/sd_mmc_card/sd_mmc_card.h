@@ -44,6 +44,11 @@ class SdMmc : public Component {
   SUB_TEXT_SENSOR(sd_card_type)
 #endif
  public:
+  enum ErrorCode {
+    ERR_PIN_SETUP,
+    ERR_MOUNT,
+    ERR_NO_CARD,
+  };
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -76,6 +81,7 @@ class SdMmc : public Component {
   void set_mode_1bit(bool);
 
  protected:
+  ErrorCode init_error_;
   GPIOPin *clk_pin_;
   GPIOPin *cmd_pin_;
   GPIOPin *data0_pin_;
@@ -91,6 +97,7 @@ class SdMmc : public Component {
   std::string sd_card_type_to_string(int) const;
   std::vector<std::string> &list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list);
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
+  static std::string error_code_to_string(ErrorCode);
 };
 
 template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {

@@ -21,15 +21,15 @@ void SdMmc::setup() {
                                         Utility::get_pin_no(this->data2_pin_), Utility::get_pin_no(this->data3_pin_));
 
   if (!setPinResult) {
-    ESP_LOGE(TAG, "Failed to set pins");
-    mark_failed();
+    this->init_error_ = ErrorCode::ERR_PIN_SETUP;
+    this->mark_failed();
     return;
   }
 
   bool beginResult = this->mode_1bit_ ? SD_MMC.begin("/sdcard", this->mode_1bit_) : SD_MMC.begin();
   if (!beginResult) {
-    ESP_LOGE(TAG, "Card Mount Failed");
-    mark_failed();
+    this->init_error_ = ErrorCode::ERR_MOUNT;
+    this->mark_failed();
     return;
   }
 
@@ -41,8 +41,8 @@ void SdMmc::setup() {
 #endif
 
   if (cardType == CARD_NONE) {
-    ESP_LOGE(TAG, "No SD_MMC card attached");
-    mark_failed();
+    this->init_error_ = ErrorCode::ERR_NO_CARD;
+    this->mark_failed();
     return;
   }
 

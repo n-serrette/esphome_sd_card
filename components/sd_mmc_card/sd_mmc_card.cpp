@@ -36,6 +36,11 @@ void SdMmc::dump_config() {
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
 #endif
+
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "Setup failed : %s", SdMmc::error_code_to_string(this->init_error_).c_str());
+    return;
+  }
 }
 
 std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) {
@@ -74,6 +79,18 @@ void SdMmc::set_data3_pin(GPIOPin *pin) { this->data3_pin_ = pin; }
 
 void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
 
+std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
+  switch (code) {
+    case ErrorCode::ERR_PIN_SETUP:
+      return "Failed to set pins";
+    case ErrorCode::ERR_MOUNT:
+      return "Failed to mount card";
+    case ErrorCode::ERR_NO_CARD:
+      return "No card found";
+    default:
+      return "Unknown error";
+  }
+}
 int Utility::get_pin_no(GPIOPin *pin) {
   if (pin == nullptr || !pin->is_internal())
     return -1;
