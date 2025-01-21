@@ -4,6 +4,8 @@ A component to access the file on an sdcard from a browser
 
 # Config
 
+This component require the [sd_mmc_card](components/sd_mmc_card/README.md) component to be configured.
+
 ```yaml
 sd_file_server:
   id: file_server

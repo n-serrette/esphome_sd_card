@@ -7,7 +7,7 @@ SD MMC cards components for esphome, it use the SD_MMC library and share its lim
 
 ```yaml
 sd_mmc_card:
-  id: esp_camera_sd_card
+  id: sd_mmc_card
   mode_1bit: false
   clk_pin: GPIO14
   cmd_pin: GPIO15
@@ -36,14 +36,17 @@ In case of connecting in 1-bit lane also known as SPI mode you can use table bel
 
 ### Notes
 
-4 bit lane does not seams to work with the latest arduino framework version. The latest known working version is ```2.0.17```
+4 bit lane does not work with arduino framework version prior to ```2.0.7```, due to an issue in the SD_MMC setPins function.
+The issue as been fix by the pull request [espressif/arduino-esp32/#7646](https://github.com/espressif/arduino-esp32/pull/7646)
+
+The recommended version by esphome is ```2.0.5```.
 
 ```yaml
 esp32:
   board: esp32dev
   framework:
     type: arduino
-    version: 2.0.17
+    version: latest
 ```
 
 ## Actions
@@ -206,7 +209,7 @@ Example
 
 ```yaml
 - lambda: |
-  for (auto const & file : id(esp_camera_sd_card)->list_directory_file_info("/", 1))
+  for (auto const & file : id(sd_mmc_card)->list_directory_file_info("/", 1))
     ESP_LOGE("   ", "File: %s, size: %d\n", file.path.c_str(), file.size);
 ```
 
@@ -222,7 +225,7 @@ bool is_directory(std::string const &path);
 Example
 
 ```yaml
-- lambda: return id(esp_camera_sd_card)->is_directory("/folder");
+- lambda: return id(sd_mmc_card)->is_directory("/folder");
 ```
 
 ### File Size
@@ -237,7 +240,7 @@ size_t file_size(std::string const &path);
 Example
 
 ```yaml
-- lambda: return id(esp_camera_sd_card)->file_size("/file");
+- lambda: return id(sd_mmc_card)->file_size("/file");
 ```
 
 ### Read File
@@ -254,7 +257,7 @@ Return the whole file as a vector, trying to read large file will saturate the e
 Example
 
 ```yaml
-- lambda: return id(esp_camera_sd_card)->read_file("/file");
+- lambda: return id(sd_mmc_card)->read_file("/file");
 ```
 
 ## Helpers
