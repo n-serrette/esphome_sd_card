@@ -8,7 +8,7 @@ To use any of these components in _your_ ESPHome device, check out the documenta
 
 ### [sd_mmc_card](components/sd_mmc_card/README.md) 
 
-The main component, allow reading and writing to the SD card.
+The main component, allow reading and writing to the SD card. It also provide some sensors and other utilities to manipulate the card.
 
 basic configuration:
 ```yaml
