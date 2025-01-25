@@ -105,7 +105,6 @@ class SdMmc : public Component {
 #ifdef USE_ESP_IDF
   std::string sd_card_type() const;
 #endif
-  std::vector<std::string> &list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list);
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
   static std::string error_code_to_string(ErrorCode);
 };
