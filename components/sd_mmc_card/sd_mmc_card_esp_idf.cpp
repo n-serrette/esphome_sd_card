@@ -149,11 +149,24 @@ void SdMmc::update_sensors() {
 #ifdef USE_SENSOR
   if (this->card_ == nullptr)
     return;
+
+  FATFS *fs;
+  DWORD fre_clust, fre_sect, tot_sect;
+  uint64_t total_bytes = -1, free_bytes = -1, used_bytes = -1;
+  auto res = f_getfree(MOUNT_POINT.c_str(), &fre_clust, &fs);
+  if (!res) {
+    tot_sect = (fs->n_fatent - 2) * fs->csize;
+    fre_sect = fre_clust * fs->csize;
+
+    total_bytes = static_cast<uint64_t>(tot_sect) * FF_SS_SDCARD;
+    free_bytes = static_cast<uint64_t>(fre_sect) * FF_SS_SDCARD;
+    used_bytes = total_bytes - free_bytes;
+  }
+
   if (this->used_space_sensor_ != nullptr)
-    this->used_space_sensor_->publish_state(-1);
+    this->used_space_sensor_->publish_state(used_bytes);
   if (this->total_space_sensor_ != nullptr)
-    this->total_space_sensor_->publish_state(static_cast<uint64_t>(this->card_->csd.capacity) *
-                                             this->card_->csd.sector_size);
+    this->total_space_sensor_->publish_state(total_bytes);
 
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
