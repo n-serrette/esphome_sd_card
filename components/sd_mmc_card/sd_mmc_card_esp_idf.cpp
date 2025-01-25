@@ -117,7 +117,12 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
 }
 
 bool SdMmc::is_directory(const char *path) {
-  return false;
+  std::string absolut_path = build_path(path);
+  DIR *dir = opendir(absolut_path.c_str());
+  if (dir) {
+    closedir(dir);
+  }
+  return dir != nullptr;
 }
 
 size_t SdMmc::file_size(const char *path) { return -1; }
