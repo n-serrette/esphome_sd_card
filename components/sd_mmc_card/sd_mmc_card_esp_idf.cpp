@@ -18,6 +18,8 @@ static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAM
 static const char *TAG = "sd_mmc_card";
 static const std::string MOUNT_POINT("/sdcard");
 
+std::string build_path(const char *path) { return MOUNT_POINT + path; }
+
 void SdMmc::setup() {
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
       .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024};
@@ -125,7 +127,16 @@ bool SdMmc::is_directory(const char *path) {
   return dir != nullptr;
 }
 
-size_t SdMmc::file_size(const char *path) { return -1; }
+size_t SdMmc::file_size(const char *path) {
+  std::string absolut_path = build_path(path);
+  struct stat info;
+  size_t file_size = 0;
+  if (stat(absolut_path.c_str(), &info) < 0) {
+    ESP_LOGE(TAG, "Failed to stat file: %s", strerror(errno));
+    return -1;
+  }
+  return info.st_size;
+}
 
 std::string SdMmc::sd_card_type() const {
   if (this->card_->is_sdio) {
