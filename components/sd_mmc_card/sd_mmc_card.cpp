@@ -43,8 +43,20 @@ void SdMmc::dump_config() {
   }
 }
 
+std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
+  std::vector<std::string> list;
+  list_directory_rec(path, depth, list);
+  return list;
+}
+
 std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) {
   return this->list_directory(path.c_str(), depth);
+}
+
+std::vector<FileInfo> SdMmc::list_directory_file_info(const char *path, uint8_t depth) {
+  std::vector<FileInfo> list;
+  list_directory_file_info_rec(path, depth, list);
+  return list;
 }
 
 std::vector<FileInfo> SdMmc::list_directory_file_info(std::string path, uint8_t depth) {
