@@ -6,6 +6,7 @@
 #include "esphome/core/log.h"
 
 #include "SD_MMC.h"
+#include "FS.h"
 
 namespace esphome {
 namespace sd_mmc_card {
@@ -119,12 +120,6 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
   return res;
 }
 
-std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
-  std::vector<std::string> list;
-  list_directory_rec(path, depth, list);
-  return list;
-}
-
 std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list) {
   ESP_LOGV(TAG, "Listing directory: %s\n", path);
 
@@ -148,12 +143,6 @@ std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t de
     }
     file = root.openNextFile();
   }
-  return list;
-}
-
-std::vector<FileInfo> SdMmc::list_directory_file_info(const char *path, uint8_t depth) {
-  std::vector<FileInfo> list;
-  list_directory_file_info_rec(path, depth, list);
   return list;
 }
 

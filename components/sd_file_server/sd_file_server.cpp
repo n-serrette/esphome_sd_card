@@ -174,8 +174,14 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
     return;
   }
+#ifdef USE_ESP_IDF
+  auto *response = request->beginResponseStream("application/octet");
+  response->print(reinterpret_cast<const char *>(file.data()));
+#else
   auto *response = request->beginResponseStream("application/octet", file.size());
   response->write(file.data(), file.size());
+#endif
+
   request->send(response);
 }
 
