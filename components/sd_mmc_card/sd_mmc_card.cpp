@@ -1,5 +1,7 @@
 #include "sd_mmc_card.h"
 
+#include <algorithm>
+
 #include "math.h"
 #include "esphome/core/log.h"
 
@@ -45,7 +47,8 @@ void SdMmc::dump_config() {
 
 std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
-  list_directory_rec(path, depth, list);
+  std::vector<FileInfo> infos = list_directory_file_info(path, depth);
+  std::transform(infos.cbegin(), infos.cend(), list.begin(), [](FileInfo const &info) { return info.path; });
   return list;
 }
 

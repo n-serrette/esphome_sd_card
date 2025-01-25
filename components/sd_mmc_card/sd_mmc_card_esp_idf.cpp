@@ -109,10 +109,6 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
   return std::vector<uint8_t>();
 }
 
-std::vector<std::string> &SdMmc::list_directory_rec(const char *path, uint8_t depth, std::vector<std::string> &list) {
-  return list;
-}
-
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   return list;
