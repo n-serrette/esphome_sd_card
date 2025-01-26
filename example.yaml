@@ -120,6 +120,13 @@ sensor:
       - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::GigaByte);
 
   - platform: sd_mmc_card
+    type: free_space
+    name: "SD card free space"
+    unit_of_measurement: Gb
+    filters:
+      - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::GigaByte);
+
+  - platform: sd_mmc_card
     type: file_size
     name: "text.txt size"
     unit_of_measurement: Kb
