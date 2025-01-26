@@ -30,6 +30,7 @@ void SdMmc::dump_config() {
 #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
+  LOG_SENSOR("  ", "Free space", this->free_space_sensor_);
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
       LOG_SENSOR("  ", "File size", sensor.sensor);
