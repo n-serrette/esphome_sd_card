@@ -41,6 +41,7 @@ class SdMmc : public Component {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
+  SUB_SENSOR(free_space)
 #endif
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)

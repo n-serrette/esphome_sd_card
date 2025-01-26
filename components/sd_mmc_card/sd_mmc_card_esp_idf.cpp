@@ -167,6 +167,8 @@ void SdMmc::update_sensors() {
     this->used_space_sensor_->publish_state(used_bytes);
   if (this->total_space_sensor_ != nullptr)
     this->total_space_sensor_->publish_state(total_bytes);
+  if (this->free_space_sensor_ != nullptr)
+    this->free_space_sensor_->publish_state(free_bytes);
 
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)

@@ -139,6 +139,19 @@ Total capacity of the sd card
 
 * All the [sensor](https://esphome.io/components/sensor/) options
 
+### Free space
+
+```yaml
+sensor:
+  - platform: sd_mmc_card
+    type: free_space
+    name: "SD card free space"
+```
+
+Free capacity of the sd card
+
+* All the [sensor](https://esphome.io/components/sensor/) options
+
 ### File size
 
 ```yaml

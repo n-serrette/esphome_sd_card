@@ -179,10 +179,14 @@ std::string SdMmc::sd_card_type_to_string(int type) const {
 
 void SdMmc::update_sensors() {
 #ifdef USE_SENSOR
+  uint64_t used_bytes = SD_MMC.usedBytes();
+  uint64_t total_bytes = SD_MMC.totalBytes();
   if (this->used_space_sensor_ != nullptr)
-    this->used_space_sensor_->publish_state(SD_MMC.usedBytes());
+    this->used_space_sensor_->publish_state(used_bytes);
   if (this->total_space_sensor_ != nullptr)
-    this->total_space_sensor_->publish_state(SD_MMC.totalBytes());
+    this->total_space_sensor_->publish_state(total_bytes);
+  if (this->free_space_sensor_ != nullptr)
+    this->free_space_sensor_->publish_state(total_bytes - used_bytes);
 
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
