@@ -72,7 +72,18 @@ void SdMmc::setup() {
 
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
   ESP_LOGV(TAG, "Writing file: %s\n", path);
-
+  std::string absolut_path = build_path(path);
+  FILE *file = NULL;
+  file = fopen(absolut_path.c_str(), "wb");
+  if (file == NULL) {
+    ESP_LOGE(TAG, "Failed to open file for writing");
+    return;
+  }
+  bool ok = fwrite(buffer, 1, len, file);
+  if (!ok) {
+    ESP_LOGE(TAG, "Failed to write to file");
+  }
+  fclose(file);
   this->update_sensors();
 }
 
