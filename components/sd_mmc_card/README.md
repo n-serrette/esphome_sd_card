@@ -1,7 +1,6 @@
 # esphome_sd_card
 
-SD MMC cards components for esphome, it use the SD_MMC library and share its limitations, for more detail see :
-[SD_MMC](https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC)
+SD MMC cards components for esphome.
 
 # Config
 
@@ -36,6 +35,11 @@ In case of connecting in 1-bit lane also known as SPI mode you can use table bel
 
 ### Notes
 
+#### Arduino Framework
+
+This component use the SD_MMC library and share its limitations, for more detail see :
+[SD_MMC](https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC)
+
 4 bit lane does not work with arduino framework version prior to ```2.0.7```, due to an issue in the SD_MMC setPins function.
 The issue as been fix by the pull request [espressif/arduino-esp32/#7646](https://github.com/espressif/arduino-esp32/pull/7646)
 
@@ -47,6 +51,19 @@ esp32:
   framework:
     type: arduino
     version: latest
+```
+
+#### ESP-IDF Framework
+
+By default long file name are not enabled, to change this behaviour ```CONFIG_FATFS_LFN_STACK``` or ```CONFIG_FATFS_LFN_HEAP``` should be set in the framework configuration. See the [Espressif documentation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html#config-fatfs-long-filenames) for more detail.
+
+```yaml
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FATFS_LFN_STACK: "y"
 ```
 
 ## Actions

@@ -111,6 +111,40 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
 
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
+  ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
+  std::string absolut_path = build_path(path);
+  DIR *dir = opendir(absolut_path.c_str());
+  if (!dir) {
+    ESP_LOGE(TAG, "Failed to open directory: %s", strerror(errno));
+    return list;
+  }
+  char entry_absolut_path[FILE_PATH_MAX];
+  char entry_path[FILE_PATH_MAX];
+  const size_t dirpath_len = MOUNT_POINT.size();
+  size_t entry_path_len = strlen(path);
+  strlcpy(entry_path, path, sizeof(entry_path));
+  strlcpy(entry_path + entry_path_len, "/", sizeof(entry_path) - entry_path_len);
+  entry_path_len = strlen(entry_path);
+
+  strlcpy(entry_absolut_path, MOUNT_POINT.c_str(), sizeof(entry_absolut_path));
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != nullptr) {
+    size_t file_size = 0;
+    strlcpy(entry_path + entry_path_len, entry->d_name, sizeof(entry_path) - entry_path_len);
+    strlcpy(entry_absolut_path + dirpath_len, entry_path, sizeof(entry_absolut_path) - dirpath_len);
+    if (entry->d_type != DT_DIR) {
+      struct stat info;
+      if (stat(entry_absolut_path, &info) < 0) {
+        ESP_LOGE(TAG, "Failed to stat file: %s '%s' %s", strerror(errno), entry->d_name, entry_absolut_path);
+      } else {
+        file_size = info.st_size;
+      }
+    }
+    list.emplace_back(entry_path, file_size, entry->d_type == DT_DIR);
+    if (entry->d_type == DT_DIR && depth)
+      list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
+  }
+  closedir(dir);
   return list;
 }
 

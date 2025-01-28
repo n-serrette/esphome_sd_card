@@ -40,6 +40,8 @@ sd_file_server:
 
 ### Notes
 
+#### Arduino Framework
+
 [sd_mmc_card](components/sd_mmc_card/README.md) does not work entierly with arduino framework version prior to ```2.0.7```.
 The issue as been fix by the pull request [espressif/arduino-esp32/#7646](https://github.com/espressif/arduino-esp32/pull/7646)
 
@@ -51,4 +53,17 @@ esp32:
   framework:
     type: arduino
     version: latest
+```
+
+#### ESP-IDF Framework
+
+By default long file name are not enabled, to change this behaviour ```CONFIG_FATFS_LFN_STACK``` or ```CONFIG_FATFS_LFN_HEAP``` should be set in the framework configuration. See the [Espressif documentation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html#config-fatfs-long-filenames) for more detail.
+
+```yaml
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FATFS_LFN_STACK: "y"
 ```
