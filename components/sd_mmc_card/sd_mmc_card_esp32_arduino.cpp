@@ -47,28 +47,13 @@ void SdMmc::setup() {
   update_sensors();
 }
 
-void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
-  ESP_LOGV(TAG, "Writing file: %s\n", path);
-
-  File file = SD_MMC.open(path, FILE_WRITE);
+void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
+  File file = SD_MMC.open(path, mode);
   if (!file) {
     ESP_LOGE(TAG, "Failed to open file for writing");
     return;
   }
 
-  file.write(buffer, len);
-  file.close();
-  this->update_sensors();
-}
-
-void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
-  ESP_LOGV(TAG, "Appending to file: %s", path);
-
-  File file = SD_MMC.open(path, FILE_APPEND);
-  if (!file) {
-    ESP_LOGE(TAG, "Failed to open file for appending");
-    return;
-  }
   file.write(buffer, len);
   file.close();
   this->update_sensors();

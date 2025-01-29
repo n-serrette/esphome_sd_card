@@ -46,6 +46,16 @@ void SdMmc::dump_config() {
   }
 }
 
+void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
+  ESP_LOGV(TAG, "Writing to file: %s", path);
+  this->write_file(path, buffer, len, "w");
+}
+
+void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
+  ESP_LOGV(TAG, "Appending to file: %s", path);
+  this->write_file(path, buffer, len, "a");
+}
+
 std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   std::vector<FileInfo> infos = list_directory_file_info(path, depth);
