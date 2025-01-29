@@ -55,6 +55,7 @@ class SdMmc : public Component {
   void setup() override;
   void loop() override;
   void dump_config() override;
+  void write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode);
   void write_file(const char *path, const uint8_t *buffer, size_t len);
   void append_file(const char *path, const uint8_t *buffer, size_t len);
   bool delete_file(const char *path);
