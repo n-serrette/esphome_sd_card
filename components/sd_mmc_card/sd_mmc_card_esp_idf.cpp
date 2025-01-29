@@ -88,7 +88,11 @@ void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, cons
 
 bool SdMmc::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
-
+  std::string absolut_path = build_path(path);
+  if (mkdir(absolut_path.c_str(), 0777) < 0) {
+    ESP_LOGE(TAG, "Failed to create a new directory: %s", strerror(errno));
+    return false;
+  }
   this->update_sensors();
   return true;
 }
