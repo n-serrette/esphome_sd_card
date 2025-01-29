@@ -113,7 +113,14 @@ bool SdMmc::remove_directory(const char *path) {
 
 bool SdMmc::delete_file(const char *path) {
   ESP_LOGV(TAG, "Delete File: %s", path);
-
+  if (this->is_directory(path)) {
+    ESP_LOGE(TAG, "Not a file");
+    return false;
+  }
+  std::string absolut_path = build_path(path);
+  if (remove(absolut_path.c_str()) != 0) {
+    ESP_LOGE(TAG, "Failed to remove file: %s", strerror(errno));
+  }
   this->update_sensors();
   return true;
 }
