@@ -99,7 +99,14 @@ bool SdMmc::create_directory(const char *path) {
 
 bool SdMmc::remove_directory(const char *path) {
   ESP_LOGV(TAG, "Remove directory: %s", path);
-
+  if (!this->is_directory(path)) {
+    ESP_LOGE(TAG, "Not a directory");
+    return false;
+  }
+  std::string absolut_path = build_path(path);
+  if (remove(absolut_path.c_str()) != 0) {
+    ESP_LOGE(TAG, "Failed to remove directory: %s", strerror(errno));
+  }
   this->update_sensors();
   return true;
 }
