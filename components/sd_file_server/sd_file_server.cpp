@@ -175,8 +175,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
   }
 #ifdef USE_ESP_IDF
-  auto *response = request->beginResponseStream("application/octet");
-  response->print(reinterpret_cast<const char *>(file.data()));
+  auto *response = request->beginResponse_P(200, "application/octet", file.data(), file.size());
 #else
   auto *response = request->beginResponseStream("application/octet", file.size());
   response->write(file.data(), file.size());
