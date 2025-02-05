@@ -128,7 +128,25 @@ bool SdMmc::delete_file(const char *path) {
 std::vector<uint8_t> SdMmc::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
 
-  return std::vector<uint8_t>();
+  std::string absolut_path = build_path(path);
+  FILE *file = nullptr;
+  file = fopen(absolut_path.c_str(), "rb");
+  if (file == nullptr) {
+    ESP_LOGE(TAG, "Failed to open file for reading");
+    return std::vector<uint8_t>();
+  }
+
+  std::vector<uint8_t> res;
+  size_t fileSize = this->file_size(path);
+  res.resize(fileSize);
+  size_t len = fread(res.data(), 1, fileSize, file);
+  fclose(file);
+  if (len < 0) {
+    ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+    return std::vector<uint8_t>();
+  }
+
+  return res;
 }
 
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
