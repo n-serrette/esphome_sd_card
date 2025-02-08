@@ -25,3 +25,7 @@ sd_file_server:
 # Notes
 
 * Trying to download large file will saturate the memory of the esp and make it crash
+
+## esp-idf
+
+Deleting/uploading a file with the esp-idf framework does not seams to work for some reasons.
