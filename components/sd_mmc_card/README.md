@@ -17,12 +17,13 @@ sd_mmc_card:
 ```
 
 * **mode_1bit** (Optional, bool): specify wether to use 1 or 4 bit lane
-* **clk_pin** : (Required, GPIO): clock pin
-* **cmd_pin** : (Required, GPIO): command pin
-* **data0_pin**: (Required, GPIO): data 0 pin
-* **data1_pin**: (Optional, GPIO): data 1 pin, only use in 4bit mode
-* **data2_pin**: (Optional, GPIO): data 2 pin, only use in 4bit mode
-* **data3_pin**: (Optional, GPIO): data 3 pin, only use in 4bit mode
+* **clk_pin** : (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): clock pin
+* **cmd_pin** : (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): command pin
+* **data0_pin**: (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): data 0 pin
+* **data1_pin**: (Optional, [Pin](https://esphome.io/guides/configuration-types#pin)): data 1 pin, only use in 4bit mode
+* **data2_pin**: (Optional, [Pin](https://esphome.io/guides/configuration-types#pin)): data 2 pin, only use in 4bit mode
+* **data3_pin**: (Optional, [Pin](https://esphome.io/guides/configuration-types#pin)): data 3 pin, only use in 4bit mode
+* **power_ctrl_pin**: (Optional, [Pin Schema](https://esphome.io/guides/configuration-types#config-pin-schema)): control the power to the sd card
 
 In case of connecting in 1-bit lane also known as SPI mode you can use table below to "convert" pin naming:
 
