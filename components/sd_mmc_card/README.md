@@ -2,6 +2,17 @@
 
 SD MMC cards components for esphome.
 
+* [Config](#config)
+  * [Notes](#notes)
+    * [Arduino Framework](#arduino-framework)
+    * [ESP-IDF Framework](#esp-idf-framework) 
+  * [Devices Examples](#devices-examples)
+  * [Actions](#actions)
+  * [Sensors](#sensors)
+  * [Others](#others)
+  * [Helpers](#helpers)
+
+
 # Config
 
 ```yaml
@@ -34,9 +45,9 @@ In case of connecting in 1-bit lane also known as SPI mode you can use table bel
 |MOSI|CMD|
 |SS/CS|DATA3|
 
-### Notes
+## Notes
 
-#### Arduino Framework
+### Arduino Framework
 
 This component use the SD_MMC library and share its limitations, for more detail see :
 [SD_MMC](https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC)
@@ -54,7 +65,7 @@ esp32:
     version: latest
 ```
 
-#### ESP-IDF Framework
+### ESP-IDF Framework
 
 By default long file name are not enabled, to change this behaviour ```CONFIG_FATFS_LFN_STACK``` or ```CONFIG_FATFS_LFN_HEAP``` should be set in the framework configuration. See the [Espressif documentation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html#config-fatfs-long-filenames) for more detail.
 
@@ -65,6 +76,36 @@ esp32:
     type: esp-idf
     sdkconfig_options:
       CONFIG_FATFS_LFN_STACK: "y"
+```
+
+## Devices Examples
+
+### ESP-Cam
+
+esp cam configuration:
+
+```yaml
+sd_mmc_card:
+  id: sd_mmc_card
+  mode_1bit: false
+  clk_pin: GPIO14
+  cmd_pin: GPIO15
+  data0_pin: GPIO2
+  data1_pin: GPIO4
+  data2_pin: GPIO12
+  data3_pin: GPIO13
+```
+
+### ESP32-S3-Box-3
+
+The ESP32-S3-Box-3 require the use of `power_ctrl_pin` to power the SD card.
+
+```yaml
+sd_mmc_card:
+  clk_pin: GPIO14
+  cmd_pin: GPIO15
+  data0_pin: GPIO2
+  power_ctrl_pin: GPIO43
 ```
 
 ## Actions
