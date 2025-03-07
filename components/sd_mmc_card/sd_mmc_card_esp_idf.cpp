@@ -21,6 +21,9 @@ static const std::string MOUNT_POINT("/sdcard");
 std::string build_path(const char *path) { return MOUNT_POINT + path; }
 
 void SdMmc::setup() {
+  if (this->power_ctrl_pin_ != nullptr)
+    this->power_ctrl_pin_->setup();
+
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
       .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024};
 
