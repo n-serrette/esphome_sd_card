@@ -324,9 +324,9 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
   }
 #ifdef USE_ESP_IDF
-  auto *response = request->beginResponse_P(200, "application/octet", file.data(), file.size());
+  auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), file.data(), file.size());
 #else
-  auto *response = request->beginResponseStream("application/octet", file.size());
+  auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
   response->write(file.data(), file.size());
 #endif
 
@@ -440,6 +440,25 @@ std::string Path::file_type(std::string const &file) {
   if (it != file_types.end())
     return it->second;
   return "File (" + ext + ")";
+}
+
+std::string Path::mime_type(std::string const &file) {
+  static const std::map<std::string, std::string> file_types = {
+      {"mp3", "audio/mpeg"},        {"wav", "audio/vnd.wav"},   {"png", "image/png"},       {"jpg", "image/jpeg"},
+      {"jpeg", "image/jpeg"},       {"bmp", "image/bmp"},       {"txt", "text/plain"},      {"log", "text/plain"},
+      {"csv", "text/csv"},          {"html", "text/html"},      {"css", "text/css"},        {"js", "text/javascript"},
+      {"json", "application/json"}, {"xml", "application/xml"}, {"zip", "application/zip"}, {"gz", "application/gzip"},
+      {"tar", "application/x-tar"}, {"mp4", "video/mp4"},       {"avi", "video/x-msvideo"}, {"webm", "video/webm"}};
+
+  std::string ext = Path::extension(file);
+  ESP_LOGD(TAG, "ext : %s", ext.c_str());
+  if (!ext.empty()) {
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+    auto it = file_types.find(ext);
+    if (it != file_types.end())
+      return it->second;
+  }
+  return "application/octet-stream";
 }
 
 }  // namespace sd_file_server

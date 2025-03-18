@@ -66,6 +66,8 @@ struct Path {
   static std::string extension(std::string const &);
 
   static std::string file_type(std::string const &);
+
+  static std::string mime_type(std::string const &);
 };
 
 }  // namespace sd_file_server
