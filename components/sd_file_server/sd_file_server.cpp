@@ -110,6 +110,19 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
     response->print(file_name.c_str());
   }
   response->print("</td><td>");
+
+  if (info.is_directory) {
+    response->print("Folder");
+  } else {
+    response->print("<span class=\"file-type\">");
+    response->print(Path::file_type(file_name).c_str());
+    response->print("</span>");
+  }
+  response->print("</td><td>");
+  if (!info.is_directory) {
+    response->print(sd_mmc_card::format_size(info.size).c_str());
+  }
+  response->print("</td><td><div class=\"file-actions\">");
   if (!info.is_directory) {
     if (this->download_enabled_) {
       response->print("<button onClick=\"download_file('");
@@ -124,24 +137,159 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
       response->print("')\">Delete</button>");
     }
   }
-  response->print("</td></tr>");
+  response->print("<div></td></tr>");
 }
 
 void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string const &path) const {
   AsyncResponseStream *response = request->beginResponseStream("text/html");
-  response->print(F("<!DOCTYPE html><html lang=\"en\"><head><meta charset=UTF-8><meta "
-                    "name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\">"
-                    "</head><body>"
-                    "<h1>SD Card Content</h1><h2>Folder "));
+  response->print(F(R"(
+  <!DOCTYPE html>
+  <html lang=\"en\">
+  <head>
+    <meta charset=UTF-8>
+    <meta name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\">
+    <title>SD Card Files</title>
+    <style>
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background: #f5f5f7;
+      color: #1d1d1f;
+    }
+    h1 {
+      color: #0066cc;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    th {
+      background: #f8f9fa;
+      font-weight: 500;
+    }
+    .file-actions {
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #0066cc;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    .upload-form {
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .upload-form input[type="file"] {
+      margin-right: 1rem;
+    }
+    .breadcrumb {
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    .breadcrumb a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .breadcrumb a:hover {
+      text-decoration: underline;
+    }
+    .breadcrumb a:not(:last-child)::after {
+      display: inline-block;
+      margin: 0 .25rem;
+      content: ">";
+    }
+    .folder {
+      color: #0066cc;
+      font-weight: 500;
+    }
+    .file-type {
+      color: #666;
+      font-size: 0.9rem;
+    }
+    .folder-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-actions button {
+      background: #4CAF50;
+    }
+    .header-actions button:hover {
+      background: #45a049;
+    }
+  </style>
+  </head>
+  <body>
+  <div class="container">
+    <div class="header-actions">
+      <h1>SD Card Files</h1>
+      <button onclick="window.location.href='/'">Go to web server</button>
+    </div>
+    <div class="breadcrumb">
+      <a href="/">Home</a>)"));
 
-  response->print(path.c_str());
-  response->print(F("</h2>"));
+  std::string current_path = "/";
+  std::string relative_path = Path::join(this->url_prefix_, Path::remove_root_path(path, this->root_path_));
+  std::vector<std::string> parts = Path::split_path(relative_path);
+  for (std::string const &part : parts) {
+    if (!part.empty()) {
+      current_path = Path::join(current_path, part);
+      response->print("<a href=\"");
+      response->print(current_path.c_str());
+      response->print("\">");
+      response->print(part.c_str());
+      response->print("</a>");
+    }
+  }
+  response->print(F("</div>"));
+
   if (this->upload_enabled_)
-    response->print(F("<form method=\"POST\" enctype=\"multipart/form-data\">"
-                      "<input type=\"file\" name=\"file\"><input type=\"submit\" value=\"upload\"></form>"));
-  response->print(F("<a href=\"/"));
-  response->print(this->url_prefix_.c_str());
-  response->print(F("\">Home</a></br></br><table id=\"files\"><thead><tr><th>Name<th>Actions<tbody>"));
+    response->print(F("<div class=\"upload-form\"><form method=\"POST\" enctype=\"multipart/form-data\">"
+                      "<input type=\"file\" name=\"file\"><input type=\"submit\" value=\"upload\"></form></div>"));
+
+  response->print(F("<table><thead><tr>"
+                    "<th>Name</th>"
+                    "<th>Type</th>"
+                    "<th>Size</th>"
+                    "<th>Actions</th>"
+                    "</tr></thead><tbody>"));
+
   auto entries = this->sd_mmc_card_->list_directory_file_info(path, 0);
   for (auto const &entry : entries)
     write_row(response, entry);
