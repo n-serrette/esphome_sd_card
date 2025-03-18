@@ -334,7 +334,7 @@ Example
 
 ## Helpers
 
-### Convert Bytes
+### Memory Units
 
 ```cpp
 enum MemoryUnits : short {
@@ -345,7 +345,13 @@ enum MemoryUnits : short {
     TeraByte = 4,
     PetaByte = 5
 };
+```
 
+enum representing the different memory units.
+
+### Convert Bytes
+
+```cpp
 long double convertBytes(uint64_t, MemoryUnits);
 ```
 
@@ -363,3 +369,27 @@ sensor:
         filters:
         - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::KiloByte);
 ```
+
+### memory unit to string
+
+```cpp
+std::string memory_unit_to_string(MemoryUnits);
+```
+
+Return a string representing the memory unit name (ex: KB)
+
+### memory unit from size
+
+```cpp
+MemoryUnits memory_unit_from_size(size_t);
+```
+
+Deduce the most apropriate memory unit for the given size.
+
+### format size
+
+```cpp
+std::string format_size(size_t);
+```
+
+Format the given size (in Bytes) to a human readable size (ex: 17.19 KB)

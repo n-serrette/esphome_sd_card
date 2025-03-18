@@ -188,6 +188,9 @@ template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
 };
 
 long double convertBytes(uint64_t, MemoryUnits);
+std::string memory_unit_to_string(MemoryUnits);
+MemoryUnits memory_unit_from_size(size_t);
+std::string format_size(size_t);
 
 }  // namespace sd_mmc_card
 }  // namespace esphome
