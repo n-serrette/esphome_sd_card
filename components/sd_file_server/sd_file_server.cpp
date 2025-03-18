@@ -254,5 +254,45 @@ std::string Path::remove_root_path(std::string path, std::string const &root) {
   return path.erase(0, root.size());
 }
 
+std::vector<std::string> Path::split_path(std::string path) {
+  std::vector<std::string> parts;
+  size_t pos = 0;
+  while ((pos = path.find('/')) != std::string::npos) {
+    std::string part = path.substr(0, pos);
+    if (!part.empty()) {
+      parts.push_back(part);
+    }
+    path.erase(0, pos + 1);
+  }
+  parts.push_back(path);
+  return parts;
+}
+
+std::string Path::extension(std::string const &file) {
+  size_t pos = file.find_last_of('.');
+  if (pos == std::string::npos)
+    return "";
+  return file.substr(pos + 1);
+}
+
+std::string Path::file_type(std::string const &file) {
+  static const std::map<std::string, std::string> file_types = {
+      {"mp3", "Audio (MP3)"},   {"wav", "Audio (WAV)"}, {"png", "Image (PNG)"},   {"jpg", "Image (JPG)"},
+      {"jpeg", "Image (JPEG)"}, {"bmp", "Image (BMP)"}, {"txt", "Text (TXT)"},    {"log", "Text (LOG)"},
+      {"csv", "Text (CSV)"},    {"html", "Web (HTML)"}, {"css", "Web (CSS)"},     {"js", "Web (JS)"},
+      {"json", "Data (JSON)"},  {"xml", "Data (XML)"},  {"zip", "Archive (ZIP)"}, {"gz", "Archive (GZ)"},
+      {"tar", "Archive (TAR)"}, {"mp4", "Video (MP4)"}, {"avi", "Video (AVI)"},   {"webm", "Video (WEBM)"}};
+
+  std::string ext = Path::extension(file);
+  if (ext.empty())
+    return "File";
+
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+  auto it = file_types.find(ext);
+  if (it != file_types.end())
+    return it->second;
+  return "File (" + ext + ")";
+}
+
 }  // namespace sd_file_server
 }  // namespace esphome

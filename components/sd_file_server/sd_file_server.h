@@ -60,6 +60,12 @@ struct Path {
   static std::string join(std::string const &, std::string const &);
 
   static std::string remove_root_path(std::string path, std::string const &root);
+
+  static std::vector<std::string> split_path(std::string path);
+
+  static std::string extension(std::string const &);
+
+  static std::string file_type(std::string const &);
 };
 
 }  // namespace sd_file_server
