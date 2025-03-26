@@ -12,6 +12,13 @@ from esphome.const import (
     CONF_PULLDOWN,
 )
 from esphome.core import CORE
+from esphome.components.esp32 import get_esp32_variant
+from esphome.components.esp32.const import (
+    VARIANT_ESP32,
+    VARIANT_ESP32S3,
+)
+
+DEPENDENCIES = ["esp32"]
 
 CONF_SD_MMC_CARD_ID = "sd_mmc_card_id"
 CONF_CMD_PIN = "cmd_pin"
@@ -77,12 +84,23 @@ async def to_code(config):
 
     if (CONF_POWER_CTRL_PIN in config):
         power_ctrl = await cg.gpio_pin_expression(config[CONF_POWER_CTRL_PIN])
-        cg.add(var.set_power_ctrl_pin(power_ctrl));
+        cg.add(var.set_power_ctrl_pin(power_ctrl))
 
     if CORE.using_arduino:
         if CORE.is_esp32:
             cg.add_library("FS", None)
             cg.add_library("SD_MMC", None)
+
+
+def _final_validate(_):
+    if not CORE.is_esp32:
+        return
+    variant = get_esp32_variant()
+    if variant not in [VARIANT_ESP32, VARIANT_ESP32S3]:
+        raise cv.Invalid(f"Unsupported variant {variant}")
+
+
+FINAL_VALIDATE_SCHEMA = _final_validate
 
 
 SD_MMC_PATH_ACTION_SCHEMA = cv.Schema(

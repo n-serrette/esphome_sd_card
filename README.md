@@ -40,6 +40,8 @@ sd_file_server:
 
 ### Notes
 
+SD MMC is only supported by ESP32 and ESP32-S3 board.
+
 #### Arduino Framework
 
 [sd_mmc_card](components/sd_mmc_card/README.md) does not work entierly with arduino framework version prior to ```2.0.7```.
