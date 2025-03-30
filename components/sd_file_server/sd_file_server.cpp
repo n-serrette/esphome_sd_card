@@ -1,4 +1,5 @@
 #include "sd_file_server.h"
+#include <map>
 #include "esphome/core/log.h"
 #include "esphome/components/network/util.h"
 #include "esphome/core/helpers.h"
