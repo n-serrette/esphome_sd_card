@@ -1,7 +1,6 @@
 #pragma once
 #include "esphome/core/gpio.h"
 #include "esphome/core/defines.h"
-#include "esphome/core/component.h"
 #include "esphome/core/automation.h"
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
@@ -13,6 +12,8 @@
 #ifdef USE_ESP_IDF
 #include "sdmmc_cmd.h"
 #endif
+
+#include "../storage_base/storage_base.h"
 
 namespace esphome {
 namespace sd_mmc_card {
@@ -29,15 +30,7 @@ struct FileSizeSensor {
 };
 #endif
 
-struct FileInfo {
-  std::string path;
-  size_t size;
-  bool is_directory;
-
-  FileInfo(std::string const &, size_t, bool);
-};
-
-class SdMmc : public Component {
+class SdMmc : public storage_base::StorageBase {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
@@ -53,25 +46,16 @@ class SdMmc : public Component {
     ERR_NO_CARD,
   };
   void setup() override;
-  void loop() override;
   void dump_config() override;
-  void write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode);
-  void write_file(const char *path, const uint8_t *buffer, size_t len);
-  void append_file(const char *path, const uint8_t *buffer, size_t len);
-  bool delete_file(const char *path);
-  bool delete_file(std::string const &path);
-  bool create_directory(const char *path);
-  bool remove_directory(const char *path);
-  std::vector<uint8_t> read_file(char const *path);
-  std::vector<uint8_t> read_file(std::string const &path);
-  bool is_directory(const char *path);
-  bool is_directory(std::string const &path);
-  std::vector<std::string> list_directory(const char *path, uint8_t depth);
-  std::vector<std::string> list_directory(std::string path, uint8_t depth);
-  std::vector<FileInfo> list_directory_file_info(const char *path, uint8_t depth);
-  std::vector<FileInfo> list_directory_file_info(std::string path, uint8_t depth);
-  size_t file_size(const char *path);
-  size_t file_size(std::string const &path);
+  void write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) override;
+  bool delete_file(const char *path) override;
+  bool create_directory(const char *path) override;
+  bool remove_directory(const char *path) override;
+  std::vector<uint8_t> read_file(char const *path) override;
+  bool is_directory(const char *path) override;
+  std::vector<storage_base::FileInfo> list_directory_file_info(const char *path, uint8_t depth) override;
+  using storage_base::StorageBase::file_size;
+  size_t file_size(const char *path) override;
 #ifdef USE_SENSOR
   void add_file_size_sensor(sensor::Sensor *, std::string const &path);
 #endif
@@ -109,7 +93,8 @@ class SdMmc : public Component {
 #ifdef USE_ESP_IDF
   std::string sd_card_type() const;
 #endif
-  std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
+  std::vector<storage_base::FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth,
+                                                                    std::vector<storage_base::FileInfo> &list);
   static std::string error_code_to_string(ErrorCode);
 };
 
