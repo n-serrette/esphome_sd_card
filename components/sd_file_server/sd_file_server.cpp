@@ -24,22 +24,24 @@ void SDFileServer::dump_config() {
 }
 
 bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
-  ESP_LOGD(TAG, "can handle %s %u", request->url().c_str(),
-           str_startswith(std::string(request->url().c_str()), this->build_prefix()));
-  return str_startswith(std::string(request->url().c_str()), this->build_prefix());
+  ESP_LOGD(TAG, "can handle %s", request->url().c_str());
+  auto prefix = this->build_prefix();
+  if (request->url().length() > prefix.size())
+    prefix += '/';
+  return str_startswith(std::string(request->url().c_str()), prefix);
 }
 
 void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   ESP_LOGD(TAG, "%s", request->url().c_str());
-  if (str_startswith(std::string(request->url().c_str()), this->build_prefix())) {
-    if (request->method() == HTTP_GET) {
-      this->handle_get(request);
-      return;
-    }
-    if (request->method() == HTTP_DELETE) {
-      this->handle_delete(request);
-      return;
-    }
+  if (!this->canHandle(request))
+    return;
+  if (request->method() == HTTP_GET) {
+    this->handle_get(request);
+    return;
+  }
+  if (request->method() == HTTP_DELETE) {
+    this->handle_delete(request);
+    return;
   }
 }
 

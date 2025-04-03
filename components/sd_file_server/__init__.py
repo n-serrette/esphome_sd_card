@@ -17,6 +17,7 @@ CONF_ENABLE_UPLOAD = "enable_upload"
 
 AUTO_LOAD = ["web_server_base"]
 DEPENDENCIES = ["storage_base"]
+MULTI_CONF = True
 
 sd_file_server_ns = cg.esphome_ns.namespace("sd_file_server")
 SDFileServer = sd_file_server_ns.class_("SDFileServer", cg.Component)
