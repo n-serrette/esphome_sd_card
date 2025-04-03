@@ -371,7 +371,7 @@ sensor:
         unit_of_measurement: Kb
         path: "/test.txt"
         filters:
-        - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::KiloByte);
+        - lambda: return storage_base::convertBytes(x, storage_base::MemoryUnits::KiloByte);
 ```
 
 ### memory unit to string

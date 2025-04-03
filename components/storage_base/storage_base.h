@@ -5,6 +5,8 @@
 namespace esphome {
 namespace storage_base {
 
+enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
+
 struct FileInfo {
   std::string path;
   size_t size;
@@ -35,5 +37,10 @@ class StorageBase : public Component {
   virtual size_t file_size(const char *path) = 0;
   size_t file_size(std::string const &path);
 };
+
+long double convertBytes(uint64_t, MemoryUnits);
+std::string memory_unit_to_string(MemoryUnits);
+MemoryUnits memory_unit_from_size(size_t);
+std::string format_size(size_t);
 }  // namespace storage_base
 }  // namespace esphome

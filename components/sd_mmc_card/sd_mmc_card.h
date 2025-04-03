@@ -18,8 +18,6 @@
 namespace esphome {
 namespace sd_mmc_card {
 
-enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
-
 #ifdef USE_SENSOR
 struct FileSizeSensor {
   sensor::Sensor *sensor{nullptr};
@@ -171,11 +169,6 @@ template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
  protected:
   SdMmc *parent_;
 };
-
-long double convertBytes(uint64_t, MemoryUnits);
-std::string memory_unit_to_string(MemoryUnits);
-MemoryUnits memory_unit_from_size(size_t);
-std::string format_size(size_t);
 
 }  // namespace sd_mmc_card
 }  // namespace esphome
