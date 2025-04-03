@@ -6,6 +6,7 @@ from esphome.const import (
     CONF_ID
 )
 from esphome.core import coroutine_with_priority, CORE
+from .. import storage_base
 from .. import sd_mmc_card
 
 CONF_URL_PREFIX = "url_prefix"
@@ -15,7 +16,7 @@ CONF_ENABLE_DOWNLOAD = "enable_download"
 CONF_ENABLE_UPLOAD = "enable_upload"
 
 AUTO_LOAD = ["web_server_base"]
-DEPENDENCIES = ["sd_mmc_card"]
+DEPENDENCIES = ["storage_base"]
 
 sd_file_server_ns = cg.esphome_ns.namespace("sd_file_server")
 SDFileServer = sd_file_server_ns.class_("SDFileServer", cg.Component)
@@ -27,7 +28,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(CONF_WEB_SERVER_BASE_ID): cv.use_id(
                 web_server_base.WebServerBase
             ),
-            cv.GenerateID(sd_mmc_card.CONF_SD_MMC_CARD_ID): cv.use_id(sd_mmc_card.SdMmc),
+            cv.GenerateID(sd_mmc_card.CONF_SD_MMC_CARD_ID): cv.use_id(storage_base.StorageBase),
             cv.Optional(CONF_URL_PREFIX, default="file"): cv.string_strict,
             cv.Optional(CONF_ROOT_PATH, default="/"): cv.string_strict,
             cv.Optional(CONF_ENABLE_DELETION, default=False): cv.boolean,
@@ -43,8 +44,8 @@ async def to_code(config):
     
     var = cg.new_Pvariable(config[CONF_ID], paren)
     await cg.register_component(var, config)
-    sdmmc = await cg.get_variable(config[sd_mmc_card.CONF_SD_MMC_CARD_ID])
-    cg.add(var.set_sd_mmc_card(sdmmc))
+    storage = await cg.get_variable(config[sd_mmc_card.CONF_SD_MMC_CARD_ID])
+    cg.add(var.set_storage(storage))
     cg.add(var.set_url_prefix(config[CONF_URL_PREFIX]))
     cg.add(var.set_root_path(config[CONF_ROOT_PATH]))
     cg.add(var.set_deletion_enabled(config[CONF_ENABLE_DELETION]))

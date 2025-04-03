@@ -52,7 +52,7 @@ void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &fi
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
-  if (index == 0 && !this->sd_mmc_card_->is_directory(path)) {
+  if (index == 0 && !this->storage_->is_directory(path)) {
     auto response = request->beginResponse(401, "application/json", "{ \"error\": \"invalid upload folder\" }");
     response->addHeader("Connection", "close");
     request->send(response);
@@ -61,10 +61,10 @@ void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &fi
   std::string file_name(filename.c_str());
   if (index == 0) {
     ESP_LOGD(TAG, "uploading file %s to %s", file_name.c_str(), path.c_str());
-    this->sd_mmc_card_->write_file(Path::join(path, file_name).c_str(), data, len);
+    this->storage_->write_file(Path::join(path, file_name).c_str(), data, len);
     return;
   }
-  this->sd_mmc_card_->append_file(Path::join(path, file_name).c_str(), data, len);
+  this->storage_->append_file(Path::join(path, file_name).c_str(), data, len);
   if (final) {
     auto response = request->beginResponse(201, "text/html", "upload success");
     response->addHeader("Connection", "close");
@@ -77,7 +77,7 @@ void SDFileServer::set_url_prefix(std::string const &prefix) { this->url_prefix_
 
 void SDFileServer::set_root_path(std::string const &path) { this->root_path_ = path; }
 
-void SDFileServer::set_sd_mmc_card(sd_mmc_card::SdMmc *card) { this->sd_mmc_card_ = card; }
+void SDFileServer::set_storage(storage_base::StorageBase *card) { this->storage_ = card; }
 
 void SDFileServer::set_deletion_enabled(bool allow) { this->deletion_enabled_ = allow; }
 
@@ -89,7 +89,7 @@ void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
-  if (!this->sd_mmc_card_->is_directory(path)) {
+  if (!this->storage_->is_directory(path)) {
     handle_download(request, path);
     return;
   }
@@ -97,7 +97,7 @@ void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   handle_index(request, path);
 }
 
-void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInfo const &info) const {
+void SDFileServer::write_row(AsyncResponseStream *response, storage_base::FileInfo const &info) const {
   std::string uri = "/" + Path::join(this->url_prefix_, Path::remove_root_path(info.path, this->root_path_));
   std::string file_name = Path::file_name(info.path);
   response->print("<tr><td>");
@@ -121,7 +121,7 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
   }
   response->print("</td><td>");
   if (!info.is_directory) {
-    response->print(sd_mmc_card::format_size(info.size).c_str());
+    response->print(storage_base::format_size(info.size).c_str());
   }
   response->print("</td><td><div class=\"file-actions\">");
   if (!info.is_directory) {
@@ -291,7 +291,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
                     "<th>Actions</th>"
                     "</tr></thead><tbody>"));
 
-  auto entries = this->sd_mmc_card_->list_directory_file_info(path, 0);
+  auto entries = this->storage_->list_directory_file_info(path, 0);
   for (auto const &entry : entries)
     write_row(response, entry);
 
@@ -319,7 +319,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
   }
 
-  auto file = this->sd_mmc_card_->read_file(path);
+  auto file = this->storage_->read_file(path);
   if (file.size() == 0) {
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
     return;
@@ -341,11 +341,11 @@ void SDFileServer::handle_delete(AsyncWebServerRequest *request) {
   }
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
-  if (this->sd_mmc_card_->is_directory(path)) {
+  if (this->storage_->is_directory(path)) {
     request->send(401, "application/json", "{ \"error\": \"cannot delete a directory\" }");
     return;
   }
-  if (this->sd_mmc_card_->delete_file(path)) {
+  if (this->storage_->delete_file(path)) {
     request->send(204, "application/json", "{}");
     return;
   }
