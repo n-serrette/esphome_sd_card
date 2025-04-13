@@ -11,7 +11,9 @@ static const char *TAG = "sd_file_server";
 
 SDFileServer::SDFileServer(web_server_base::WebServerBase *base) : base_(base) {}
 
-void SDFileServer::setup() { this->base_->add_handler(this); }
+void SDFileServer::setup() { 
+    this->base_->add_handler(this);
+ }
 
 void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "SD File Server:");
@@ -45,6 +47,10 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
 
 void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data,
                                 size_t len, bool final) {
+
+
+  ESP_LOGD(TAG, "handleUpload", request->url().c_str());
+
   if (!this->upload_enabled_) {
     request->send(401, "application/json", "{ \"error\": \"file upload is disabled\" }");
     return;
@@ -319,20 +325,62 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
   }
 
+#ifdef USE_ESP_IDF
+
+  size_t file_size = this->sd_mmc_card_->file_size(path);
+  if (file_size <= 0) {
+    ESP_LOGE(TAG, "File not found: %s",path.c_str());
+    request->send(401, "application/json", "{ \"error\": \"file not found or empty.\" }");
+    return;
+    }
+
+//   ExternalRAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
+//   RAMAllocator<uint8_t> allocator(RAMAllocator<uint8_t>::ALLOC_INTERNAL);
+  RAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
+  uint8_t *data = allocator.allocate(file_size);
+
+  if (data == nullptr) {
+    ESP_LOGE(TAG, "No memory. (Size: %zu)", file_size);
+    request->send(401, "application/json", "{ \"error\": \"no memory.\" }");
+    return;
+    } 
+  
+  size_t read_len  = this->sd_mmc_card_->read_file(path,data,file_size);
+  if (read_len = 0 ) {
+    ESP_LOGE(TAG, "Failed to read file: %s",path.c_str());
+    allocator.deallocate(data,file_size);
+    request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
+    return;
+    } 
+
+  auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), data, read_len);
+
+#else
+
   auto file = this->sd_mmc_card_->read_file(path);
+
   if (file.size() == 0) {
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
     return;
   }
-#ifdef USE_ESP_IDF
-  auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), file.data(), file.size());
-#else
   auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
   response->write(file.data(), file.size());
+
 #endif
 
+  ESP_LOGD(TAG, "Send file: %s", path);
   request->send(response);
+
+#ifdef USE_ESP_IDF
+
+// esp_http_server_dispatch_event(HTTP_SERVER_EVENT_SENT_DATA, &evt_data, sizeof(esp_http_server_event_data));
+// return ESP_OK;
+
+  allocator.deallocate(data,file_size);
+#endif
 }
+
+
 
 void SDFileServer::handle_delete(AsyncWebServerRequest *request) {
   if (!this->deletion_enabled_) {
