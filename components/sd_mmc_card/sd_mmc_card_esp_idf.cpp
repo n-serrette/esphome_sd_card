@@ -128,6 +128,32 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
+size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
+{
+    ESP_LOGD(TAG, "Open file: %s", path);
+
+    std::string absolut_path = build_path(path);
+    FILE *file = nullptr;
+    file = fopen(absolut_path.c_str(), "rb");
+    if (file == nullptr)
+    {
+        ESP_LOGE(TAG, "Failed to open file for reading");
+        return -1;
+    }
+
+    size_t len = fread((void*)buf, 1, promise_len, file);
+    fclose(file);
+    if (len < 0)
+    {
+        ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+        return -1;
+    }
+
+    ESP_LOGD(TAG, "File read complete. %d", len);
+    return len;
+}
+
+
 std::vector<uint8_t> SdMmc::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
 

@@ -88,6 +88,9 @@ bool SdMmc::is_directory(std::string const &path) { return this->is_directory(pa
 
 bool SdMmc::delete_file(std::string const &path) { return this->delete_file(path.c_str()); }
 
+size_t SdMmc::read_file(std::string const &path, uint8_t *buf, size_t promise_len) 
+{ return this->read_file(path.c_str(), buf, promise_len); }
+
 std::vector<uint8_t> SdMmc::read_file(std::string const &path) { return this->read_file(path.c_str()); }
 
 #ifdef USE_SENSOR
