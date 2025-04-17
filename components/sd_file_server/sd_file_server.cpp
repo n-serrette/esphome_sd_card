@@ -346,13 +346,9 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     } 
   
   size_t read_len  = this->sd_mmc_card_->read_file(path,data,file_size);
-<<<<<<< HEAD
-//   ESP_LOGD(TAG, "Read file: %s, size %d", path.c_str(), read_len);
 
   if (read_len == 0 ) {
-=======
-  if (read_len = 0 ) {
->>>>>>> 3c4d23f (Change read file method in sd_file_server handle_download)
+
     ESP_LOGE(TAG, "Failed to read file: %s",path.c_str());
     allocator.deallocate(data,file_size);
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
@@ -374,12 +370,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
 
 #endif
 
-<<<<<<< HEAD
   ESP_LOGD(TAG, "Send file: %s, size %d", path.c_str(), read_len);
-=======
-  ESP_LOGD(TAG, "Send file: %s", path);
->>>>>>> 3c4d23f (Change read file method in sd_file_server handle_download)
-  request->send(response);
 
 #ifdef USE_ESP_IDF
 
