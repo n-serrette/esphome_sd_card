@@ -92,6 +92,35 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
+size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
+{
+    size_t len = 0;
+    ESP_LOGD(TAG, "Read File: %s", path);
+    File file = SD_MMC.open(path);
+    if (!file) {
+      ESP_LOGE(TAG, "Failed to open file for reading %s", absolut_path.c_str());
+      return -1;
+    }
+
+    while ((file.available())  &&  (len <= promise_len)) {
+        buf[len] = file.read();
+        len++;
+    }
+
+    if (file.available()) {   // Steel available after write whole buffer
+        ESP_LOGW(TAG, "Incomplate read. Actual size is gerater then %d bytes.",promise_len);
+    }
+    file.close();
+
+    if (len <= 0) {
+        ESP_LOGE(TAG, "Failed to read or file is empty. File: %s", absolut_path.c_str());
+        return -1;
+    }
+
+    ESP_LOGV(TAG, "File read complete. %d bytes.", len);
+    return len;
+}
+
 std::vector<uint8_t> SdMmc::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
   File file = SD_MMC.open(path);

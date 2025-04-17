@@ -62,6 +62,8 @@ class SdMmc : public Component {
   bool delete_file(std::string const &path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
+  size_t read_file(std::string const &path, uint8_t *buf, size_t promise_len);         
+  size_t read_file(const char *path, uint8_t *buf, size_t promise_len);
   std::vector<uint8_t> read_file(char const *path);
   std::vector<uint8_t> read_file(std::string const &path);
   bool is_directory(const char *path);
