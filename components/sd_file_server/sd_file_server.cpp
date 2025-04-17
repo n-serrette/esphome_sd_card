@@ -318,24 +318,21 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
 
   request->send(response);
 }
-
 void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string const &path) const {
   if (!this->download_enabled_) {
     request->send(401, "application/json", "{ \"error\": \"file download is disabled\" }");
     return;
   }
+  size_t read_len = 0;
 
 #ifdef USE_ESP_IDF
-
-  size_t file_size = this->sd_mmc_card_->file_size(path);
+size_t file_size = this->sd_mmc_card_->file_size(path);
   if (file_size <= 0) {
     ESP_LOGE(TAG, "File not found: %s",path.c_str());
     request->send(401, "application/json", "{ \"error\": \"file not found or empty.\" }");
     return;
     }
 
-//   ExternalRAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
-//   RAMAllocator<uint8_t> allocator(RAMAllocator<uint8_t>::ALLOC_INTERNAL);
   RAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
   uint8_t *data = allocator.allocate(file_size);
 
@@ -345,10 +342,9 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
     } 
   
-  size_t read_len  = this->sd_mmc_card_->read_file(path,data,file_size);
+  read_len  = this->sd_mmc_card_->read_file(path,data,file_size);
 
   if (read_len == 0 ) {
-
     ESP_LOGE(TAG, "Failed to read file: %s",path.c_str());
     allocator.deallocate(data,file_size);
     request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
@@ -367,16 +363,15 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
   }
   auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
   response->write(file.data(), file.size());
-
+  read_len = file.size();
 #endif
 
   ESP_LOGD(TAG, "Send file: %s, size %d", path.c_str(), read_len);
+  request->send(response);
 
 #ifdef USE_ESP_IDF
-
-// esp_http_server_dispatch_event(HTTP_SERVER_EVENT_SENT_DATA, &evt_data, sizeof(esp_http_server_event_data));
+//TODO:  esp_http_server_dispatch_event(HTTP_SERVER_EVENT_SENT_DATA, &evt_data, sizeof(esp_http_server_event_data));
 // return ESP_OK;
-
   allocator.deallocate(data,file_size);
 #endif
 }
