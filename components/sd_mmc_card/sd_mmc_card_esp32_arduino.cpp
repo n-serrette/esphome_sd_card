@@ -92,6 +92,64 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
+/**
+ * 
+ */
+FilePtr* SdMmc::open_file(const char *path, const char* mode) {
+  FilePtr* fptr = (FilePtr*) calloc(1, sizeof(FilePtr));
+  if (fptr == NULL) {
+      ESP_LOGE(TAG, "Not enough memory");
+      return NULL;
+  }
+
+  fptr->path = build_path(path);
+  if ( ! SD_MMC.exists(fptr->path) ) {
+    ESP_LOGE(TAG, "File %s does not exist", absolut_path.c_str());
+    delete fptr->path;
+    free(fptr);
+    return NULL;
+  }
+
+  fptr->file = SD_MMC.open(fptr->path,mode);
+  if (!fptr->file) {
+    ESP_LOGE(TAG, "Failed to open file: %s, mode: %s", absolut_path.c_str(), mode);
+    delete fptr->path;
+    free(fptr);
+    return NULL;
+  }
+  return fptr; 
+}
+
+/**
+ * 
+ */
+void SdMmc::close_file(FilePtr* fptr) {
+  if ( fptr != NULL ) {
+      fclose(fptr->file);
+      delete fptr->path;
+      free(fptr);
+  }
+}
+
+/**
+ *    Read data block from  file (defined by descriptor).
+ *    return  -1 if error occered
+ *            -0 end of file
+ *            >0 Redad bytes.
+ */    
+size_t SdMmc::block_read_file(FilePtr* fptr, uint8_t *buf, size_t promise_len) 
+{
+
+  size_t read_len = fptr->file->read(buf,promise_len);
+  if (len < 0)
+  {
+      ESP_LOGE(TAG, "Failed to read file";
+      return -1;
+  }
+  ESP_LOGV(TAG, "Read %d bytes", len);
+  return len;
+}
+
 size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
 {
     size_t len = 0;
