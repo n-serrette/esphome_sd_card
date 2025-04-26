@@ -127,6 +127,86 @@ bool SdMmc::delete_file(const char *path) {
   this->update_sensors();
   return true;
 }
+/**
+   *   Open file on mounted sd card.   
+   *   Return  structure *FilePtr (
+   *         parh - the full file path
+   *         *file - file secriptor
+   *    )
+   */
+FilePtr* SdMmc::open_file(const char *path, const char* mode) {
+  FilePtr* fptr = (FilePtr*) calloc(1, sizeof(FilePtr));
+  if (fptr == NULL) {
+      ESP_LOGE(TAG, "Not enough memory");
+      return NULL;
+  }
+  fptr->path = new std::string(build_path(path));
+  fptr->file = nullptr;
+  
+  ESP_LOGD(TAG,"Opening File full path: %s, mode %s",fptr->path->c_str(),mode);
+  fptr->file = fopen(fptr->path->c_str(), mode);
+  
+  if (fptr->file == nullptr)
+  {
+      ESP_LOGE(TAG, "Cannot open file. %s",strerror(errno));
+      delete fptr->path;
+      free(fptr);
+      return NULL;
+  }
+  return fptr;
+}
+
+void SdMmc::close_file(FilePtr* fptr) {
+  if ( fptr != NULL ) {
+      fclose(fptr->file);
+      delete fptr->path;
+      free(fptr);
+  }
+}
+
+/**
+ *    Read data block from  file (defined by descriptor).
+ *    return  -1 if error occered
+ *            -0 end of file
+ *            >0 Redad bytes.
+ */    
+size_t SdMmc::block_read_file(FilePtr* fl, uint8_t *buf, size_t promise_len) 
+{
+  size_t len = fread((void *)buf, 1, promise_len, fl->file);
+  if (len < 0)
+  {
+      ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+      return -1;
+  }
+  ESP_LOGV(TAG, "Read %d bytes", len);
+  return len;
+}
+
+size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
+{
+    ESP_LOGD(TAG, "Open file: %s", path);
+
+    std::string absolut_path = build_path(path);
+    FILE *file = nullptr;
+    file = fopen(absolut_path.c_str(), "rb");
+    if (file == nullptr)
+    {
+        ESP_LOGE(TAG, "Failed to open file for reading");
+        return -1;
+    }
+
+    size_t len = fread((void*)buf, 1, promise_len, file);
+    fclose(file);
+    if (len < 0)
+    {
+        ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+        return -1;
+    }
+
+    ESP_LOGD(TAG, "File read complete. %d", len);
+    return len;
+}
+
 
 std::vector<uint8_t> SdMmc::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
