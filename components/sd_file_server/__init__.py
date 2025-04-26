@@ -3,7 +3,8 @@ import esphome.config_validation as cv
 from esphome.components import web_server_base
 from esphome.components.web_server_base import CONF_WEB_SERVER_BASE_ID
 from esphome.const import (
-    CONF_ID
+    CONF_ID,
+    CONF_BUFFER_SIZE
 )
 from esphome.core import coroutine_with_priority, CORE
 from .. import sd_mmc_card
@@ -33,6 +34,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ENABLE_DELETION, default=False): cv.boolean,
             cv.Optional(CONF_ENABLE_DOWNLOAD, default=False): cv.boolean,
             cv.Optional(CONF_ENABLE_UPLOAD, default=False): cv.boolean,
+            cv.Optional(CONF_BUFFER_SIZE, default=65536): cv.int_range(256, 65536),            
         }
     ).extend(cv.COMPONENT_SCHEMA),
 )
@@ -50,5 +52,6 @@ async def to_code(config):
     cg.add(var.set_deletion_enabled(config[CONF_ENABLE_DELETION]))
     cg.add(var.set_download_enabled(config[CONF_ENABLE_DOWNLOAD]))
     cg.add(var.set_upload_enabled(config[CONF_ENABLE_UPLOAD]))
+    cg.add(var.set_buf_size(config[CONF_BUFFER_SIZE]))    
     
     cg.add_define("USE_SD_CARD_WEBSERVER")

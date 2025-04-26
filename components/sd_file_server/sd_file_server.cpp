@@ -23,6 +23,7 @@ void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "  Deletation Enabled: %s", TRUEFALSE(this->deletion_enabled_));
   ESP_LOGCONFIG(TAG, "  Download Enabled : %s", TRUEFALSE(this->download_enabled_));
   ESP_LOGCONFIG(TAG, "  Upload Enabled : %s", TRUEFALSE(this->upload_enabled_));
+  ESP_LOGCONFIG(TAG, "  Buf size : %d", this->buf_size_);  
 }
 
 bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
@@ -91,7 +92,9 @@ void SDFileServer::set_download_enabled(bool allow) { this->download_enabled_ = 
 
 void SDFileServer::set_upload_enabled(bool allow) { this->upload_enabled_ = allow; }
 
-void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
+void SDFileServer::set_buf_size(size_t buf_size) { this->buf_size_ = buf_size; }
+
+void SDFileServer::handle_get(AsyncWebServerRequest *request) {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
@@ -318,7 +321,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
 
   request->send(response);
 }
-void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string const &path) const {
+void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string const &path) {
   if (!this->download_enabled_) {
     request->send(401, "application/json", "{ \"error\": \"file download is disabled\" }");
     return;
@@ -326,57 +329,79 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
   size_t read_len = 0;
 
 #ifdef USE_ESP_IDF
-size_t file_size = this->sd_mmc_card_->file_size(path);
-  if (file_size <= 0) {
-    ESP_LOGE(TAG, "File not found: %s",path.c_str());
-    request->send(401, "application/json", "{ \"error\": \"file not found or empty.\" }");
-    return;
-    }
-
-  RAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
-  uint8_t *data = allocator.allocate(file_size);
-
-  if (data == nullptr) {
-    ESP_LOGE(TAG, "No memory. (Size: %zu)", file_size);
-    request->send(401, "application/json", "{ \"error\": \"no memory.\" }");
-    return;
-    } 
-  
-  read_len  = this->sd_mmc_card_->read_file(path,data,file_size);
-
-  if (read_len == 0 ) {
-    ESP_LOGE(TAG, "Failed to read file: %s",path.c_str());
-    allocator.deallocate(data,file_size);
-    request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
-    return;
-    } 
-
-  auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), data, read_len);
-
-#else
-
-  auto file = this->sd_mmc_card_->read_file(path);
-
-  if (file.size() == 0) {
-    request->send(401, "application/json", "{ \"error\": \"failed to read file\" }");
-    return;
-  }
-  auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
-  response->write(file.data(), file.size());
-  read_len = file.size();
+  httpd_req_t *req = *request;
+  httpd_resp_set_status(req, HTTPD_200);
+  auto mt = new std::string(Path::mime_type(path));
+  httpd_resp_set_type(req, mt->c_str());
+  std::string fname = std::string("inline; filename=") + Path::file_name(path);
+  httpd_resp_set_hdr(req, "Content-Disposition", fname.c_str());
+  std::string content_len = std::to_string(this->sd_mmc_card_->file_size(path));
+  httpd_resp_set_hdr(req, "content-length", content_len.c_str());
+  httpd_resp_set_hdr(req, "access-control-allow-origin", "*");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
 #endif
-
-  ESP_LOGD(TAG, "Send file: %s, size %d", path.c_str(), read_len);
+  sd_mmc_card::FilePtr *fptr = this->sd_mmc_card_->open_file(path.c_str(), "r");
+  if (fptr == nullptr)
+  {
+      ESP_LOGE(TAG, "Failed to open file: %s", path.c_str());
+      request->send(401, "application/json", "{ \"error\": \"failed to open file\" }");
+      return;
+  }
+  #ifdef USE_ESP32_FRAMEWORK_ARDUINO
+  request->onDisconnect({
+      this->sd_mmc_card_->close_file(fptr);
+  });
+  auto response = request->beginResponse(Path::mime_type(path), this->sd_mmc_card_->file_size(path),
+      [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t
+      {
+          read_len = this->sd_mmc_card_->block_read_file(fptr, buffer, maxLen);
+          if (read_len < 0)
+          {
+              ESP_LOGE(TAG, "Error sending file data");
+              read_len = 0;
+          }
+          else 
+            ESP_LOGV(TAG, "Read file block %d", read_len);
+          return read_len;
+      });
+  std::string fname = std::string("attachment; filename=") + Path::file_name(path);
+  response->addHeader("access-control-allow-origin","*");
+  response->addHeader("Content-Disposition",fname.c_str());
   request->send(response);
+#endif
 
 #ifdef USE_ESP_IDF
-//TODO:  esp_http_server_dispatch_event(HTTP_SERVER_EVENT_SENT_DATA, &evt_data, sizeof(esp_http_server_event_data));
-// return ESP_OK;
-  allocator.deallocate(data,file_size);
+  uint8_t *buff = this->allocator_.allocate(this->buf_size_);
+
+  if (buff == nullptr)  {
+    ESP_LOGE(TAG, "No memory: %d", this->buf_size_);
+    request->send(401, "application/json", "{ \"error\": \"no memory\" }");
+    return;
+  }
+  do {
+    read_len = this->sd_mmc_card_->block_read_file(fptr, buff, this->buf_size_);
+    ESP_LOGV(TAG, "Read file block %d", read_len);
+    if (read_len >= 0)
+    {
+      esp_err_t ret = httpd_resp_send_chunk(req, (const char *)buff, read_len);
+      if (ret != ESP_OK)
+      {
+          this->sd_mmc_card_->close_file(fptr);
+          ESP_LOGE(TAG, "Error send file data: %s", esp_err_to_name(ret));
+          this->allocator_.deallocate(buff, this->buf_size_);
+          // request->send(500, "application/json", "{ \"error\": \"no memory\" }");
+          return;
+      }
+      else
+          ESP_LOGV(TAG, "Send file chunk %d", read_len);
+    }
+  } while (read_len > 0);
+  ESP_LOGD(TAG, "Send complete");
+
+  this->sd_mmc_card_->close_file(fptr);
+  this->allocator_.deallocate(buff, this->buf_size_);
 #endif
 }
-
-
 
 void SDFileServer::handle_delete(AsyncWebServerRequest *request) {
   if (!this->deletion_enabled_) {
@@ -494,7 +519,8 @@ std::string Path::mime_type(std::string const &file) {
       {"csv", "text/csv"},          {"html", "text/html"},      {"css", "text/css"},        {"js", "text/javascript"},
       {"json", "application/json"}, {"xml", "application/xml"}, {"zip", "application/zip"}, {"gz", "application/gzip"},
       {"tar", "application/x-tar"}, {"mp4", "video/mp4"},       {"avi", "video/x-msvideo"}, {"webm", "video/webm"}};
-
+  
+  // auto oct_stream = std::string("application/octet-stream");
   std::string ext = Path::extension(file);
   ESP_LOGD(TAG, "ext : %s", ext.c_str());
   if (!ext.empty()) {
@@ -503,7 +529,7 @@ std::string Path::mime_type(std::string const &file) {
     if (it != file_types.end())
       return it->second;
   }
-  return "application/octet-stream";
+  return std::string("application/octet-stream");
 }
 
 }  // namespace sd_file_server

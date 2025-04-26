@@ -102,9 +102,9 @@ FilePtr* SdMmc::open_file(const char *path, const char* mode) {
       return NULL;
   }
 
-  fptr->path = build_path(path);
+  fptr->path = new std::string(build_path(path));
   if ( ! SD_MMC.exists(fptr->path) ) {
-    ESP_LOGE(TAG, "File %s does not exist", absolut_path.c_str());
+    ESP_LOGE(TAG, "File %s does not exist", absolut_path->c_str());
     delete fptr->path;
     free(fptr);
     return NULL;

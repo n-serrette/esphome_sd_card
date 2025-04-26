@@ -31,7 +31,7 @@ struct FileSizeSensor {
 
 struct FilePtr
 {
-    std::string path;
+    std::string *path;
 #if defined(USE_ESP_IDF)
     FILE *file;
 #elif defined(USE_ESP32_FRAMEWORK_ARDUINO)
