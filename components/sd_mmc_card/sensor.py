@@ -6,11 +6,11 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     UNIT_BYTES,
     ICON_MEMORY,
+    CONF_PATH,
 )
 from . import (
     SdMmc,
     CONF_SD_MMC_CARD_ID,
-    CONF_PATH,
 )
 
 DEPENDENCIES = ["sd_mmc_card"]

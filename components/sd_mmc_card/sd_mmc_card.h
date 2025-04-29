@@ -1,13 +1,6 @@
 #pragma once
 #include "esphome/core/gpio.h"
 #include "esphome/core/defines.h"
-#include "esphome/core/automation.h"
-#ifdef USE_SENSOR
-#include "esphome/components/sensor/sensor.h"
-#endif
-#ifdef USE_TEXT_SENSOR
-#include "esphome/components/text_sensor/text_sensor.h"
-#endif
 
 #ifdef USE_ESP_IDF
 #include "sdmmc_cmd.h"
@@ -94,80 +87,6 @@ class SdMmc : public storage_base::StorageBase {
   std::vector<storage_base::FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth,
                                                                     std::vector<storage_base::FileInfo> &list);
   static std::string error_code_to_string(ErrorCode);
-};
-
-template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
- public:
-  SdMmcWriteFileAction(SdMmc *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(std::string, path)
-  TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
-
-  void play(Ts... x) {
-    auto path = this->path_.value(x...);
-    auto buffer = this->data_.value(x...);
-    this->parent_->write_file(path.c_str(), buffer.data(), buffer.size());
-  }
-
- protected:
-  SdMmc *parent_;
-};
-
-template<typename... Ts> class SdMmcAppendFileAction : public Action<Ts...> {
- public:
-  SdMmcAppendFileAction(SdMmc *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(std::string, path)
-  TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
-
-  void play(Ts... x) {
-    auto path = this->path_.value(x...);
-    auto buffer = this->data_.value(x...);
-    this->parent_->append_file(path.c_str(), buffer.data(), buffer.size());
-  }
-
- protected:
-  SdMmc *parent_;
-};
-
-template<typename... Ts> class SdMmcCreateDirectoryAction : public Action<Ts...> {
- public:
-  SdMmcCreateDirectoryAction(SdMmc *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(std::string, path)
-
-  void play(Ts... x) {
-    auto path = this->path_.value(x...);
-    this->parent_->create_directory(path.c_str());
-  }
-
- protected:
-  SdMmc *parent_;
-};
-
-template<typename... Ts> class SdMmcRemoveDirectoryAction : public Action<Ts...> {
- public:
-  SdMmcRemoveDirectoryAction(SdMmc *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(std::string, path)
-
-  void play(Ts... x) {
-    auto path = this->path_.value(x...);
-    this->parent_->remove_directory(path.c_str());
-  }
-
- protected:
-  SdMmc *parent_;
-};
-
-template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
- public:
-  SdMmcDeleteFileAction(SdMmc *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(std::string, path)
-
-  void play(Ts... x) {
-    auto path = this->path_.value(x...);
-    this->parent_->delete_file(path.c_str());
-  }
-
- protected:
-  SdMmc *parent_;
 };
 
 }  // namespace sd_mmc_card
