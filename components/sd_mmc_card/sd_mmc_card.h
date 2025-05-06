@@ -11,22 +11,7 @@
 namespace esphome {
 namespace sd_mmc_card {
 
-#ifdef USE_SENSOR
-struct FileSizeSensor {
-  sensor::Sensor *sensor{nullptr};
-  std::string path;
-
-  FileSizeSensor() = default;
-  FileSizeSensor(sensor::Sensor *, std::string const &path);
-};
-#endif
-
 class SdMmc : public storage_base::StorageBase {
-#ifdef USE_SENSOR
-  SUB_SENSOR(used_space)
-  SUB_SENSOR(total_space)
-  SUB_SENSOR(free_space)
-#endif
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)
 #endif
@@ -47,9 +32,6 @@ class SdMmc : public storage_base::StorageBase {
   std::vector<storage_base::FileInfo> list_directory_file_info(const char *path, uint8_t depth) override;
   using storage_base::StorageBase::file_size;
   size_t file_size(const char *path) override;
-#ifdef USE_SENSOR
-  void add_file_size_sensor(sensor::Sensor *, std::string const &path);
-#endif
 
   void set_clk_pin(uint8_t);
   void set_cmd_pin(uint8_t);
@@ -74,10 +56,8 @@ class SdMmc : public storage_base::StorageBase {
 #ifdef USE_ESP_IDF
   sdmmc_card_t *card_;
 #endif
-#ifdef USE_SENSOR
-  std::vector<FileSizeSensor> file_size_sensors_{};
-#endif
-  void update_sensors();
+
+  void update_sensors() override;
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
   std::string sd_card_type_to_string(int) const;
 #endif

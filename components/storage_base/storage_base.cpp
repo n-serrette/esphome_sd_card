@@ -7,6 +7,14 @@ namespace storage_base {
 
 static const char *TAG = "storage_base";
 
+#ifdef USE_SENSOR
+FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
+
+void StorageBase::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
+  this->file_size_sensors_.emplace_back(sensor, path);
+}
+#endif
+
 FileInfo::FileInfo(std::string const &path, size_t size, bool is_directory)
     : path(path), size(size), is_directory(is_directory) {}
 

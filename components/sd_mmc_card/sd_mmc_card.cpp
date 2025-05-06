@@ -10,10 +10,6 @@ namespace sd_mmc_card {
 
 static const char *TAG = "sd_mmc_card";
 
-#ifdef USE_SENSOR
-FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
-#endif
-
 void SdMmc::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
@@ -31,13 +27,7 @@ void SdMmc::dump_config() {
   }
 
 #ifdef USE_SENSOR
-  LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
-  LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
-  LOG_SENSOR("  ", "Free space", this->free_space_sensor_);
-  for (auto &sensor : this->file_size_sensors_) {
-    if (sensor.sensor != nullptr)
-      LOG_SENSOR("  ", "File size", sensor.sensor);
-  }
+  LOG_STORAGE_SENSORS("  ", this);
 #endif
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
@@ -54,12 +44,6 @@ std::vector<storage_base::FileInfo> SdMmc::list_directory_file_info(const char *
   list_directory_file_info_rec(path, depth, list);
   return list;
 }
-
-#ifdef USE_SENSOR
-void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
-  this->file_size_sensors_.emplace_back(sensor, path);
-}
-#endif
 
 void SdMmc::set_clk_pin(uint8_t pin) { this->clk_pin_ = pin; }
 
