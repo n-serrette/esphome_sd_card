@@ -234,8 +234,8 @@ Return the size of the given file
 
 ```yaml
 text_sensor:
-  - platform: sd_mmc_card
-    sd_card_type:
+  - platform: storage_base
+    storage_type:
       name: "SD card type"
 ```
 

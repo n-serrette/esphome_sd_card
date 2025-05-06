@@ -12,9 +12,6 @@ namespace esphome {
 namespace sd_mmc_card {
 
 class SdMmc : public storage_base::StorageBase {
-#ifdef USE_TEXT_SENSOR
-  SUB_TEXT_SENSOR(sd_card_type)
-#endif
  public:
   enum ErrorCode {
     ERR_PIN_SETUP,

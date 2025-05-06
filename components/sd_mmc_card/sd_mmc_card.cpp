@@ -30,7 +30,7 @@ void SdMmc::dump_config() {
   LOG_STORAGE_SENSORS("  ", this);
 #endif
 #ifdef USE_TEXT_SENSOR
-  LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
+  LOG_STORAGE_TEXT_SENSORS("  ", this);
 #endif
 
   if (this->is_failed()) {

@@ -37,8 +37,8 @@ void SdMmc::setup() {
   uint8_t cardType = SD_MMC.cardType();
 
 #ifdef USE_TEXT_SENSOR
-  if (this->sd_card_type_text_sensor_ != nullptr)
-    this->sd_card_type_text_sensor_->publish_state(sd_card_type_to_string(cardType));
+  if (this->storage_type_text_sensor_ != nullptr)
+    this->storage_type_text_sensor_->publish_state(sd_card_type_to_string(cardType));
 #endif
 
   if (cardType == CARD_NONE) {

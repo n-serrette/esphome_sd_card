@@ -5,6 +5,9 @@
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 namespace esphome {
 namespace storage_base {
@@ -18,6 +21,11 @@ namespace storage_base {
       if (sensor.sensor != nullptr) \
         LOG_SENSOR(prefix, "File size", sensor.sensor); \
     } \
+  }
+
+#define LOG_STORAGE_TEXT_SENSORS(prefix, obj) \
+  if ((obj) != nullptr) { \
+    LOG_TEXT_SENSOR(prefix, "Storage Type", obj->storage_type_text_sensor_); \
   }
 
 enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
@@ -45,6 +53,9 @@ class StorageBase : public Component {
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
   SUB_SENSOR(free_space)
+#endif
+#ifdef USE_TEXT_SENSOR
+  SUB_TEXT_SENSOR(storage_type)
 #endif
  public:
   virtual void write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) = 0;
