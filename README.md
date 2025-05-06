@@ -4,11 +4,23 @@ A collection of ESPHome components focus on operating a SD card.
 
 To use any of these components in _your_ ESPHome device, check out the documentation for adding [external components](https://esphome.io/components/external_components#git).
 
+> &#x1F6A8; BREAKING CHANGES
+> 
+> The new `storage_base` component introduce some breaking changes, mainly:
+>
+>* Actions are now under the `storage` prefix (ex `storage.append_file`)
+>* Sensors and text sensors are under the `storage_base` plateform
+>* On sd_file_server `sd_mmc_card_id` is remplaced by `storage_id`
+
 ## Components
+
+### [storage_base](components/storage_base/README.md)
+
+Base component use to implement a storage device, give a basic interface to interact and manipulate storage. It also give access to device size, file size and storage type sensors.
 
 ### [sd_mmc_card](components/sd_mmc_card/README.md) 
 
-The main component, allow reading and writing to the SD card. It also provide some sensors and other utilities to manipulate the card.
+Allow reading and writing to the SD card. It also provide some sensors and other utilities to manipulate the card.
 
 basic configuration:
 ```yaml
@@ -25,7 +37,7 @@ sd_mmc_card:
 
 ### [sd_file_server](components/sd_file_server/README.md)
 
-A simple web page to navigate the card content and upload/download/delete files.
+A simple web page to navigate a storage device content and upload/download/delete files.
 
 basic configuration:
 ```yaml

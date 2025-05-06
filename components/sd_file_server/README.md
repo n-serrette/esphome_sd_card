@@ -1,15 +1,18 @@
 # sd_file_server
 
-A component to access the file on an sdcard from a browser
+A component to access the file on an storage device from a browser
 
 # Config
 
-This component require the [sd_mmc_card](components/sd_mmc_card/README.md) component to be configured.
+This component require a storage device component implementing the [storage_base](components/storage_base/README.md) interface to be configured.
+
+This component allow multiple configurations.
 
 ```yaml
 sd_file_server:
   id: file_server
   url_prefix: file
+  storage_id: storage_1
   root_path: "/"
   enable_deletion: true
   enable_download: true
@@ -17,7 +20,8 @@ sd_file_server:
 ```
 
 * **url_prefix**: (Optional, string, default="file") : url prefix to acces the file page (ex : sd-card.local/file)
-* **root_path**: (Optional, string, default="/"): sd card file system root
+* **storage_id**: (Optional, string): id of the storage device to use
+* **root_path**: (Optional, string, default="/"): storage file system root
 * **enable_deletion**: (Optional, boolean, default=False): enable file deletion from the web page or api
 * **enable_download**: (Optional, boolean, default=False): enable file download from the web page or api
 * **enable_upload**: (Optional, boolean, default=False): enable file upload from the web page or api
