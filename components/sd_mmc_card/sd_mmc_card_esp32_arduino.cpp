@@ -102,18 +102,18 @@ FilePtr* SdMmc::open_file(const char *path, const char* mode) {
       return NULL;
   }
 
-  fptr->path = new std::string(build_path(path));
-  if ( ! SD_MMC.exists(fptr->path) ) {
+  // fptr->path = new std::string(path);
+  if ( ! SD_MMC.exists(path) ) {
     ESP_LOGE(TAG, "File %s does not exist", absolut_path->c_str());
-    delete fptr->path;
+    // delete fptr->path;
     free(fptr);
     return NULL;
   }
 
-  fptr->file = SD_MMC.open(fptr->path,mode);
+  fptr->file = SD_MMC.open(path,mode);
   if (!fptr->file) {
     ESP_LOGE(TAG, "Failed to open file: %s, mode: %s", absolut_path.c_str(), mode);
-    delete fptr->path;
+    // delete fptr->path;
     free(fptr);
     return NULL;
   }
@@ -125,8 +125,9 @@ FilePtr* SdMmc::open_file(const char *path, const char* mode) {
  */
 void SdMmc::close_file(FilePtr* fptr) {
   if ( fptr != NULL ) {
-      fclose(fptr->file);
-      delete fptr->path;
+      // SD_MMC.close(fptr->file);
+      // delete fptr->path;
+      fptr->file.close();
       free(fptr);
   }
 }
@@ -140,14 +141,14 @@ void SdMmc::close_file(FilePtr* fptr) {
 size_t SdMmc::block_read_file(FilePtr* fptr, uint8_t *buf, size_t promise_len) 
 {
 
-  size_t read_len = fptr->file->read(buf,promise_len);
-  if (len < 0)
+  size_t read_len = fptr->file.read(buf,promise_len);
+  if (read_len < 0)
   {
-      ESP_LOGE(TAG, "Failed to read file";
+      ESP_LOGE(TAG, "Failed to read file");
       return -1;
   }
-  ESP_LOGV(TAG, "Read %d bytes", len);
-  return len;
+  ESP_LOGV(TAG, "Read %d bytes", read_len);
+  return read_len;
 }
 
 size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)

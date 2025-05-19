@@ -140,16 +140,16 @@ FilePtr* SdMmc::open_file(const char *path, const char* mode) {
       ESP_LOGE(TAG, "Not enough memory");
       return NULL;
   }
-  fptr->path = new std::string(build_path(path));
+  // fptr->path = new std::string(build_path(path));
   fptr->file = nullptr;
   
-  ESP_LOGD(TAG,"Opening File full path: %s, mode %s",fptr->path->c_str(),mode);
-  fptr->file = fopen(fptr->path->c_str(), mode);
+  ESP_LOGD(TAG,"Opening File full path: %s, mode %s",path,mode);
+  fptr->file = fopen(path, mode);
   
   if (fptr->file == nullptr)
   {
       ESP_LOGE(TAG, "Cannot open file. %s",strerror(errno));
-      delete fptr->path;
+      // delete fptr->path;
       free(fptr);
       return NULL;
   }
@@ -159,7 +159,7 @@ FilePtr* SdMmc::open_file(const char *path, const char* mode) {
 void SdMmc::close_file(FilePtr* fptr) {
   if ( fptr != NULL ) {
       fclose(fptr->file);
-      delete fptr->path;
+      // delete fptr->path;
       free(fptr);
   }
 }

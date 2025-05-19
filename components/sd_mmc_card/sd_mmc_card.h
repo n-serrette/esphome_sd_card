@@ -12,6 +12,8 @@
 
 #ifdef USE_ESP_IDF
 #include "sdmmc_cmd.h"
+#else 
+#include "SD_MMC.h"
 #endif
 
 namespace esphome {
@@ -31,11 +33,11 @@ struct FileSizeSensor {
 
 struct FilePtr
 {
-    std::string *path;
+    // std::string *path;
 #if defined(USE_ESP_IDF)
     FILE *file;
 #elif defined(USE_ESP32_FRAMEWORK_ARDUINO)
-    File file;
+    fs::File file;
 #else
 #error "Unknown ploatfom"
 #endif
