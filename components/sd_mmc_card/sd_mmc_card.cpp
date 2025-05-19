@@ -1,5 +1,7 @@
 #include "sd_mmc_card.h"
 
+#ifdef SDMMC_USE_SDMMC
+
 #include <algorithm>
 
 #include "math.h"
@@ -51,45 +53,6 @@ void SdMmc::dump_config() {
   }
 }
 
-void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
-  ESP_LOGV(TAG, "Writing to file: %s", path);
-  this->write_file(path, buffer, len, "w");
-}
-
-void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
-  ESP_LOGV(TAG, "Appending to file: %s", path);
-  this->write_file(path, buffer, len, "a");
-}
-
-std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
-  std::vector<std::string> list;
-  std::vector<FileInfo> infos = list_directory_file_info(path, depth);
-  std::transform(infos.cbegin(), infos.cend(), list.begin(), [](FileInfo const &info) { return info.path; });
-  return list;
-}
-
-std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) {
-  return this->list_directory(path.c_str(), depth);
-}
-
-std::vector<FileInfo> SdMmc::list_directory_file_info(const char *path, uint8_t depth) {
-  std::vector<FileInfo> list;
-  list_directory_file_info_rec(path, depth, list);
-  return list;
-}
-
-std::vector<FileInfo> SdMmc::list_directory_file_info(std::string path, uint8_t depth) {
-  return this->list_directory_file_info(path.c_str(), depth);
-}
-
-size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
-
-bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
-
-bool SdMmc::delete_file(std::string const &path) { return this->delete_file(path.c_str()); }
-
-std::vector<uint8_t> SdMmc::read_file(std::string const &path) { return this->read_file(path.c_str()); }
-
 #ifdef USE_SENSOR
 void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
   this->file_size_sensors_.emplace_back(sensor, path);
@@ -125,47 +88,7 @@ std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
   }
 }
 
-long double convertBytes(uint64_t value, MemoryUnits unit) {
-  return value * 1.0 / pow(1024, static_cast<uint64_t>(unit));
-}
-
-std::string memory_unit_to_string(MemoryUnits unit) {
-  switch (unit) {
-    case MemoryUnits::Byte:
-      return "B";
-    case MemoryUnits::KiloByte:
-      return "KB";
-    case MemoryUnits::MegaByte:
-      return "MB";
-    case MemoryUnits::GigaByte:
-      return "GB";
-    case MemoryUnits::TeraByte:
-      return "TB";
-    case MemoryUnits::PetaByte:
-      return "PB";
-  }
-  return "unknown";
-}
-
-MemoryUnits memory_unit_from_size(size_t size) {
-  short unit = MemoryUnits::Byte;
-  double s = static_cast<double>(size);
-  while (s >= 1024 && unit < MemoryUnits::PetaByte) {
-    s /= 1024;
-    unit++;
-  }
-  return static_cast<MemoryUnits>(unit);
-}
-
-std::string format_size(size_t size) {
-  MemoryUnits unit = memory_unit_from_size(size);
-  char buffer[32];
-  snprintf(buffer, sizeof(buffer), "%.2f %s", convertBytes(size, unit), memory_unit_to_string(unit).c_str());
-  return std::string(buffer);
-}
-
-FileInfo::FileInfo(std::string const &path, size_t size, bool is_directory)
-    : path(path), size(size), is_directory(is_directory) {}
-
 }  // namespace sd_mmc_card
 }  // namespace esphome
+
+#endif // SDMMC_USE_SDMMC

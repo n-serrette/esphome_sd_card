@@ -1,16 +1,17 @@
+#include "sd_spi_card.h"
 
-#include "sd_mmc_card.h"
-
-#ifdef SDMMC_USE_SDMMC
-#if defined(USE_ESP_IDF) && defined(SDMMC_HOST_DEFAULT)
+#ifdef SDMMC_USE_SDSPI
+#ifdef USE_ESP_IDF
 
 #include "math.h"
 #include "esphome/core/log.h"
-#include "esp_vfs.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdmmc_types.h"
+extern "C" {
+  #include "esp_vfs.h"
+  #include "esp_vfs_fat.h"
+  #include "sdmmc_cmd.h"
+  #include "driver/sdmmc_host.h"
+  #include "driver/sdmmc_types.h"
+}
 
 int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
 
@@ -23,42 +24,104 @@ static const std::string MOUNT_POINT("/sdcard");
 
 std::string build_path(const char *path) { return MOUNT_POINT + path; }
 
-void SdMmc::setup() {
+void SdSpi::loop() {}
+
+void SdSpi::dump_config() {
+  ESP_LOGCONFIG(TAG, "SD MMC Component");
+  ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
+  if (this->power_ctrl_pin_ != nullptr) {
+    LOG_PIN("  Power Ctrl Pin: ", this->power_ctrl_pin_);
+  }
+
+#ifdef USE_SENSOR
+  LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
+  LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
+  LOG_SENSOR("  ", "Free space", this->free_space_sensor_);
+  for (auto &sensor : this->file_size_sensors_) {
+    if (sensor.sensor != nullptr)
+      LOG_SENSOR("  ", "File size", sensor.sensor);
+  }
+#endif
+#ifdef USE_TEXT_SENSOR
+  LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
+#endif
+
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "Setup failed : %s", SdSpi::error_code_to_string(this->init_error_).c_str());
+    return;
+  }
+}
+
+std::string SdSpi::error_code_to_string(SdSpi::ErrorCode code) {
+  switch (code) {
+    case ErrorCode::ERR_PIN_SETUP:
+      return "Failed to set pins";
+    case ErrorCode::ERR_MOUNT:
+      return "Failed to mount card";
+    case ErrorCode::ERR_NO_CARD:
+      return "No card found";
+    default:
+      return "Unknown error";
+  }
+}
+
+
+#ifdef USE_SENSOR
+void SdSpi::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
+  this->file_size_sensors_.emplace_back(sensor, path);
+}
+#endif
+
+
+void SdSpi::setup() {
   if (this->power_ctrl_pin_ != nullptr)
     this->power_ctrl_pin_->setup();
 
+  auto setup_input_pullup = [](GPIOPin* pin) {
+    pin->pin_mode(gpio::FLAG_INPUT|gpio::FLAG_PULLUP);
+    pin->setup();
+  };
+  if (this->data1_pin_ != nullptr)
+    setup_input_pullup(this->data1_pin_);
+  if (this->data2_pin_ != nullptr)
+    setup_input_pullup(this->data2_pin_);
+  
+  this->spi_setup();
+
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-      .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024};
+    .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024, .disk_status_check_enable = false};
 
-  sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-  sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-
-  if (this->mode_1bit_) {
-    slot_config.width = 1;
-  } else {
-    slot_config.width = 4;
+  const auto init_err = sdspi_host_init();
+  if(init_err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed init sdspi host: %s", esp_err_to_name(init_err));
+    this->mark_failed();
+    return;
   }
+  ESP_LOGV(TAG, "sdspi host initialized");
 
-#ifdef SOC_SDMMC_USE_GPIO_MATRIX
-  slot_config.clk = static_cast<gpio_num_t>(this->clk_pin_);
-  slot_config.cmd = static_cast<gpio_num_t>(this->cmd_pin_);
-  slot_config.d0 = static_cast<gpio_num_t>(this->data0_pin_);
+  sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+  host.slot = this->spi_interface_;
+  // host.max_freq_khz = SDMMC_FREQ_PROBING;
 
-  if (!this->mode_1bit_) {
-    slot_config.d1 = static_cast<gpio_num_t>(this->data1_pin_);
-    slot_config.d2 = static_cast<gpio_num_t>(this->data2_pin_);
-    slot_config.d3 = static_cast<gpio_num_t>(this->data3_pin_);
-  }
-#endif
+  sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+  slot_config.host_id = this->spi_interface_;
+  slot_config.gpio_cs = static_cast<gpio_num_t>(spi::Utility::get_pin_no(this->cs_));
 
-  // Enable internal pullups on enabled pins. The internal pullups
-  // are insufficient however, please make sure 10k external pullups are
-  // connected on the bus. This is for debug / example purpose only.
-  slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-
-  auto ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
-
+  ESP_LOGV(TAG, "Mounting file system:\n spi host: %s\n max_freq_khz: %d", [](spi_host_device_t spi) -> const char*{
+    switch (spi)
+    {
+    case SPI1_HOST:
+      return "SPI1_HOST";
+    case SPI2_HOST:
+      return "SPI2_HOST";
+    default:
+      break;
+    }
+    return "unknown";
+  }(slot_config.host_id), host.max_freq_khz);
+  auto ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
   if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to mount FAT fs: %s", esp_err_to_name(ret));
     if (ret == ESP_FAIL) {
       this->init_error_ = ErrorCode::ERR_MOUNT;
     } else {
@@ -76,7 +139,7 @@ void SdMmc::setup() {
   update_sensors();
 }
 
-void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
+void SdSpi::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
   std::string absolut_path = build_path(path);
   FILE *file = NULL;
   file = fopen(absolut_path.c_str(), mode);
@@ -92,7 +155,7 @@ void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, cons
   this->update_sensors();
 }
 
-bool SdMmc::create_directory(const char *path) {
+bool SdSpi::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
   std::string absolut_path = build_path(path);
   if (mkdir(absolut_path.c_str(), 0777) < 0) {
@@ -103,7 +166,7 @@ bool SdMmc::create_directory(const char *path) {
   return true;
 }
 
-bool SdMmc::remove_directory(const char *path) {
+bool SdSpi::remove_directory(const char *path) {
   ESP_LOGV(TAG, "Remove directory: %s", path);
   if (!this->is_directory(path)) {
     ESP_LOGE(TAG, "Not a directory");
@@ -117,7 +180,7 @@ bool SdMmc::remove_directory(const char *path) {
   return true;
 }
 
-bool SdMmc::delete_file(const char *path) {
+bool SdSpi::delete_file(const char *path) {
   ESP_LOGV(TAG, "Delete File: %s", path);
   if (this->is_directory(path)) {
     ESP_LOGE(TAG, "Not a file");
@@ -131,7 +194,7 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
-std::vector<uint8_t> SdMmc::read_file(char const *path) {
+std::vector<uint8_t> SdSpi::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
 
   std::string absolut_path = build_path(path);
@@ -155,7 +218,7 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
   return res;
 }
 
-std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
+std::vector<FileInfo> &SdSpi::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
   std::string absolut_path = build_path(path);
@@ -194,7 +257,7 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
   return list;
 }
 
-bool SdMmc::is_directory(const char *path) {
+bool SdSpi::is_directory(const char *path) {
   std::string absolut_path = build_path(path);
   DIR *dir = opendir(absolut_path.c_str());
   if (dir) {
@@ -203,7 +266,7 @@ bool SdMmc::is_directory(const char *path) {
   return dir != nullptr;
 }
 
-size_t SdMmc::file_size(const char *path) {
+size_t SdSpi::file_size(const char *path) {
   std::string absolut_path = build_path(path);
   struct stat info;
   size_t file_size = 0;
@@ -214,7 +277,7 @@ size_t SdMmc::file_size(const char *path) {
   return info.st_size;
 }
 
-std::string SdMmc::sd_card_type() const {
+std::string SdSpi::sd_card_type() const {
   if (this->card_->is_sdio) {
     return "SDIO";
   } else if (this->card_->is_mmc) {
@@ -225,7 +288,7 @@ std::string SdMmc::sd_card_type() const {
   return "UNKNOWN";
 }
 
-void SdMmc::update_sensors() {
+void SdSpi::update_sensors() {
 #ifdef USE_SENSOR
   if (this->card_ == nullptr)
     return;
@@ -252,7 +315,7 @@ void SdMmc::update_sensors() {
 
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
-      sensor.sensor->publish_state(this->file_size(sensor.path));
+      sensor.sensor->publish_state(this->file_size(sensor.path.c_str()));
   }
 #endif
 }
@@ -261,4 +324,4 @@ void SdMmc::update_sensors() {
 }  // namespace esphome
 
 #endif  // USE_ESP_IDF
-#endif // SDMMC_USE_SDMMC
+#endif // SDMMC_USE_SDSPI
