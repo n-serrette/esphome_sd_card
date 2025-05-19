@@ -340,7 +340,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
   httpd_resp_set_hdr(req, "access-control-allow-origin", "*");
   httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
 #endif
-  sd_mmc_card::FilePtr *fptr = this->sd_mmc_card_->open_file(path.c_str(), "r");
+  sd_mmc_card::file_ptr_t fptr = this->sd_mmc_card_->open_file(path.c_str(), "r");
   if (fptr == nullptr)
   {
       ESP_LOGE(TAG, "Failed to open file: %s", path.c_str());

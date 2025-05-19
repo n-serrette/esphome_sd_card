@@ -13,6 +13,8 @@ namespace sd_mmc_card {
 
 static const char *TAG = "sd_mmc_card_esp32_arduino";
 
+File file_object;
+
 void SdMmc::setup() {
   if (this->power_ctrl_pin_ != nullptr)
     this->power_ctrl_pin_->setup();
@@ -95,39 +97,39 @@ bool SdMmc::delete_file(const char *path) {
 /**
  * 
  */
-FilePtr* SdMmc::open_file(const char *path, const char* mode) {
-  FilePtr* fptr = (FilePtr*) calloc(1, sizeof(FilePtr));
-  if (fptr == NULL) {
-      ESP_LOGE(TAG, "Not enough memory");
-      return NULL;
-  }
+file_ptr_t SdMmc::open_file(const char *path, const char* mode) {
+  // file_ptr_t fptr = NULL;
+  // if (fptr == NULL) {
+  //     ESP_LOGE(TAG, "Not enough memory");
+  //     return NULL;
+  // }
 
   // fptr->path = new std::string(path);
   if ( ! SD_MMC.exists(path) ) {
     ESP_LOGE(TAG, "File %s does not exist", absolut_path->c_str());
     // delete fptr->path;
-    free(fptr);
+    // free(fptr);
     return NULL;
   }
 
-  fptr->file = SD_MMC.open(path,mode);
-  if (!fptr->file) {
+  file_object = SD_MMC.open(path,mode);
+  if (!file_object) {
     ESP_LOGE(TAG, "Failed to open file: %s, mode: %s", absolut_path.c_str(), mode);
     // delete fptr->path;
-    free(fptr);
+    // free(fptr);
     return NULL;
   }
-  return fptr; 
+  return &file_object; 
 }
 
 /**
  * 
  */
-void SdMmc::close_file(FilePtr* fptr) {
+void SdMmc::close_file(file_ptr_t fptr) {
   if ( fptr != NULL ) {
       // SD_MMC.close(fptr->file);
       // delete fptr->path;
-      fptr->file.close();
+      fptr->close();
       free(fptr);
   }
 }
@@ -138,10 +140,10 @@ void SdMmc::close_file(FilePtr* fptr) {
  *            -0 end of file
  *            >0 Redad bytes.
  */    
-size_t SdMmc::block_read_file(FilePtr* fptr, uint8_t *buf, size_t promise_len) 
+size_t SdMmc::block_read_file(file_ptr_t fptr, uint8_t *buf, size_t promise_len) 
 {
 
-  size_t read_len = fptr->file.read(buf,promise_len);
+  size_t read_len = fptr->read(buf,promise_len);
   if (read_len < 0)
   {
       ESP_LOGE(TAG, "Failed to read file");

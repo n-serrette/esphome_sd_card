@@ -31,17 +31,19 @@ struct FileSizeSensor {
 };
 #endif
 
-struct FilePtr
-{
+// struct FilePtr
+// {
     // std::string *path;
 #if defined(USE_ESP_IDF)
-    FILE *file;
+typedef FILE* file_ptr_t;
+    // FILE *file;
 #elif defined(USE_ESP32_FRAMEWORK_ARDUINO)
-    fs::File file;
+typedef fs::File* file_ptr_t;
+    // fs::File file;
 #else
 #error "Unknown ploatfom"
 #endif
-};
+// };
 
 struct FileInfo {
   std::string path;
@@ -76,10 +78,10 @@ class SdMmc : public Component {
   bool delete_file(std::string const &path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
-  FilePtr* open_file(std::string const &path, const char *mode);
-  FilePtr* open_file(const char *path, const char* mode);
-  void close_file(FilePtr* fl);
-  size_t block_read_file(FilePtr* fl, uint8_t *buf, size_t promise_len);
+  file_ptr_t open_file(std::string const &path, const char *mode);
+  file_ptr_t open_file(const char *path, const char* mode);
+  void close_file(file_ptr_t fl);
+  size_t block_read_file(file_ptr_t fl, uint8_t *buf, size_t promise_len);
   size_t read_file(std::string const &path, uint8_t *buf, size_t promise_len);         
   size_t read_file(const char *path, uint8_t *buf, size_t promise_len);
   std::vector<uint8_t> read_file(char const *path);
