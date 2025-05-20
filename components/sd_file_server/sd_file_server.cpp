@@ -1,3 +1,4 @@
+#define protected public
 
 #include "sd_file_server.h"
 #include "path.h"
@@ -14,7 +15,32 @@ static const char *TAG = "sd_file_server";
 
 SDFileServer::SDFileServer(web_server_base::WebServerBase *base) : base_(base) {}
 
-void SDFileServer::setup() { this->base_->add_handler(this); }
+esp_err_t get_handler(httpd_req_t *req)
+{
+    /* Send a simple response */
+    const char resp[] = "URI GET Response";
+    httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+void SDFileServer::setup() { 
+  this->base_->add_handler(this);
+#ifdef USE_ESP_IDF
+  httpd_uri_t uri_get = {
+    .uri      = "/uri",
+    .method   = HTTP_GET,
+    .handler  = get_handler,
+    .user_ctx = NULL
+  };
+
+  
+  const auto err = httpd_register_uri_handler(this->base_->server_->server_, &uri_get);
+  if(err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to register get handler: %s", strerror(errno));
+  }
+
+#endif
+}
 
 void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "SD File Server:");
