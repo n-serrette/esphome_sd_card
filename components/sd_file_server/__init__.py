@@ -39,9 +39,9 @@ CONFIG_SCHEMA = cv.All(
 
 @coroutine_with_priority(45.0)
 async def to_code(config):
-    paren = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])
+    parent = await cg.get_variable(config[CONF_WEB_SERVER_BASE_ID])
     
-    var = cg.new_Pvariable(config[CONF_ID], paren)
+    var = cg.new_Pvariable(config[CONF_ID], parent)
     await cg.register_component(var, config)
     sdmmc = await cg.get_variable(config[sd_mmc_card.CONF_SD_MMC_CARD_ID])
     cg.add(var.set_sd_mmc_card(sdmmc))

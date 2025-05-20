@@ -26,7 +26,7 @@ SIMPLE_TYPES = [CONF_USED_SPACE, CONF_TOTAL_SPACE, CONF_FREE_SPACE]
 BASE_CONFIG_SCHEMA = sensor.sensor_schema(
     unit_of_measurement=UNIT_BYTES,
     icon=ICON_MEMORY,
-    accuracy_decimals=2,
+    accuracy_decimals=0,
     state_class=STATE_CLASS_MEASUREMENT,
 ).extend(
     {
