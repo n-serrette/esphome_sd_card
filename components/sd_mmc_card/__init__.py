@@ -37,9 +37,9 @@ CONF_POWER_CTRL_PIN = "power_ctrl_pin"
 CONF_SPI_INTERFACE = "_spi_interface"
 
 sd_mmc_card_component_ns = cg.esphome_ns.namespace("sd_mmc_card")
-SdCardContent = sd_mmc_card_component_ns.class_("SdCardContent")
-SdMmc = sd_mmc_card_component_ns.class_("SdMmc", cg.Component, SdCardContent)
-SdSpi = sd_mmc_card_component_ns.class_("SdSpi", spi.SPIDevice, cg.Component, SdCardContent)
+SdCard = sd_mmc_card_component_ns.class_("SdCard")
+SdMmc = sd_mmc_card_component_ns.class_("SdMmc", cg.Component, SdCard)
+SdSpi = sd_mmc_card_component_ns.class_("SdSpi", spi.SPIDevice, cg.Component, SdCard)
 
 TYPE_SD_MMC = "sd_mmc"
 TYPE_SD_SPI = "sd_spi"

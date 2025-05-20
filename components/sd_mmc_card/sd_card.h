@@ -14,7 +14,7 @@ struct FileInfo {
   FileInfo(std::string const &, size_t, bool);
 };
 
-class SdCardContent {
+class SdCard {
  public:
   // sugar
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
