@@ -1,16 +1,16 @@
 #pragma once
-
 #include "esphome/core/defines.h"
+#ifdef SDMMC_USE_SDSPI
 
-#ifdef SDMMC_USE_SDMMC
 
 #include "sd_card.h"
 #include "sd_card_actions.h"
 #include "memory_units.h"
 
+
+
 #include "esphome/core/gpio.h"
-#include "esphome/core/component.h"
-#include "esphome/core/automation.h"
+#include "esphome/components/spi/spi.h"
 
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
@@ -37,7 +37,8 @@ struct FileSizeSensor {
 #endif
 
 
-class SdMmc : public Component, public SdCard {
+class SdSpi : public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW, spi::CLOCK_PHASE_LEADING,
+spi::DATA_RATE_10MHZ>, public Component, public SdCard {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
@@ -66,25 +67,20 @@ class SdMmc : public Component, public SdCard {
   void add_file_size_sensor(sensor::Sensor *, std::string const &path);
 #endif
 
-  void set_clk_pin(uint8_t);
-  void set_cmd_pin(uint8_t);
-  void set_data0_pin(uint8_t);
-  void set_data1_pin(uint8_t);
-  void set_data2_pin(uint8_t);
-  void set_data3_pin(uint8_t);
-  void set_mode_1bit(bool);
-  void set_power_ctrl_pin(GPIOPin *);
+  void set_mode_1bit(bool b) { this->mode_1bit_ = b; }
+  void set_power_ctrl_pin(GPIOPin *pin) { this-> power_ctrl_pin_ = pin; }
+  void set_spi_interface(SPIInterface spi_interface) { spi_interface_ = spi_interface; }
+
+  void set_data1_pin(GPIOPin *pin) { this->data1_pin_ = pin; }
+  void set_data2_pin(GPIOPin *pin) { this->data2_pin_ = pin; }
 
  protected:
   ErrorCode init_error_;
-  uint8_t clk_pin_;
-  uint8_t cmd_pin_;
-  uint8_t data0_pin_;
-  uint8_t data1_pin_;
-  uint8_t data2_pin_;
-  uint8_t data3_pin_;
-  bool mode_1bit_;
+  SPIInterface spi_interface_;
   GPIOPin *power_ctrl_pin_{nullptr};
+  GPIOPin *data1_pin_{nullptr};
+  GPIOPin *data2_pin_{nullptr};
+  bool mode_1bit_;
 
 #ifdef USE_ESP_IDF
   sdmmc_card_t *card_;
@@ -103,7 +99,7 @@ class SdMmc : public Component, public SdCard {
   static std::string error_code_to_string(ErrorCode);
 };
 
-
 }  // namespace sd_mmc_card
 }  // namespace esphome
-#endif // SDMMC_USE_SDMMC
+
+#endif // SDMMC_USE_SDSPI

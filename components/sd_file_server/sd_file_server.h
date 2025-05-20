@@ -1,7 +1,8 @@
 #pragma once
 #include "esphome/core/component.h"
 #include "esphome/components/web_server_base/web_server_base.h"
-#include "../sd_mmc_card/sd_mmc_card.h"
+#include "../sd_mmc_card/sd_card.h"
+#include "../sd_mmc_card/memory_units.h"
 
 namespace esphome {
 namespace sd_file_server {
@@ -19,14 +20,14 @@ class SDFileServer : public Component, public AsyncWebHandler {
 
   void set_url_prefix(std::string const &);
   void set_root_path(std::string const &);
-  void set_sd_mmc_card(sd_mmc_card::SdMmc *);
+  void set_sd_mmc_card(sd_mmc_card::SdCard *);
   void set_deletion_enabled(bool);
   void set_download_enabled(bool);
   void set_upload_enabled(bool);
 
  protected:
   web_server_base::WebServerBase *base_;
-  sd_mmc_card::SdMmc *sd_mmc_card_;
+  sd_mmc_card::SdCard *sd_mmc_card_;
 
   std::string url_prefix_;
   std::string root_path_;
