@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sd_card_content.h"
+#include "sd_card.h"
 
 #include "esphome/core/automation.h"
 
@@ -11,7 +11,7 @@ namespace esphome
         
 template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
     public:
-     SdMmcWriteFileAction(SdCardContent *parent) : parent_(parent) {}
+     SdMmcWriteFileAction(SdCard *parent) : parent_(parent) {}
      TEMPLATABLE_VALUE(std::string, path)
      TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
    
@@ -22,12 +22,12 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
      }
    
     protected:
-     SdCardContent *parent_;
+     SdCard *parent_;
    };
    
    template<typename... Ts> class SdMmcAppendFileAction : public Action<Ts...> {
     public:
-     SdMmcAppendFileAction(SdCardContent *parent) : parent_(parent) {}
+     SdMmcAppendFileAction(SdCard *parent) : parent_(parent) {}
      TEMPLATABLE_VALUE(std::string, path)
      TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
    
@@ -38,12 +38,12 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
      }
    
     protected:
-     SdCardContent *parent_;
+     SdCard *parent_;
    };
    
    template<typename... Ts> class SdMmcCreateDirectoryAction : public Action<Ts...> {
     public:
-     SdMmcCreateDirectoryAction(SdCardContent *parent) : parent_(parent) {}
+     SdMmcCreateDirectoryAction(SdCard *parent) : parent_(parent) {}
      TEMPLATABLE_VALUE(std::string, path)
    
      void play(Ts... x) {
@@ -52,12 +52,12 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
      }
    
     protected:
-     SdCardContent *parent_;
+     SdCard *parent_;
    };
    
    template<typename... Ts> class SdMmcRemoveDirectoryAction : public Action<Ts...> {
     public:
-     SdMmcRemoveDirectoryAction(SdCardContent *parent) : parent_(parent) {}
+     SdMmcRemoveDirectoryAction(SdCard *parent) : parent_(parent) {}
      TEMPLATABLE_VALUE(std::string, path)
    
      void play(Ts... x) {
@@ -66,12 +66,12 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
      }
    
     protected:
-     SdCardContent *parent_;
+     SdCard *parent_;
    };
    
    template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
     public:
-     SdMmcDeleteFileAction(SdCardContent *parent) : parent_(parent) {}
+     SdMmcDeleteFileAction(SdCard *parent) : parent_(parent) {}
      TEMPLATABLE_VALUE(std::string, path)
    
      void play(Ts... x) {
@@ -80,7 +80,7 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
      }
    
     protected:
-     SdCardContent *parent_;
+     SdCard *parent_;
    };
     } // namespace sd_mmc_card
     

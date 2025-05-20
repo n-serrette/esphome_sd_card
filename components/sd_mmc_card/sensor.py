@@ -8,7 +8,7 @@ from esphome.const import (
     ICON_MEMORY,
 )
 from . import (
-    SdCardContent,
+    SdCard,
     CONF_SD_MMC_CARD_ID,
     CONF_PATH,
 )
@@ -30,7 +30,7 @@ BASE_CONFIG_SCHEMA = sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT,
 ).extend(
     {
-        cv.GenerateID(CONF_SD_MMC_CARD_ID): cv.use_id(SdCardContent),
+        cv.GenerateID(CONF_SD_MMC_CARD_ID): cv.use_id(SdCard),
     }
 )
 

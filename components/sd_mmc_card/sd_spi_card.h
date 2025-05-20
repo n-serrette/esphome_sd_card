@@ -3,8 +3,8 @@
 #ifdef SDMMC_USE_SDSPI
 
 
-#include "sd_card_content.h"
-#include "sd_card_content_actions.h"
+#include "sd_card.h"
+#include "sd_card_actions.h"
 #include "memory_units.h"
 
 
@@ -38,7 +38,7 @@ struct FileSizeSensor {
 
 
 class SdSpi : public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW, spi::CLOCK_PHASE_LEADING,
-spi::DATA_RATE_10MHZ>, public Component, public SdCardContent {
+spi::DATA_RATE_10MHZ>, public Component, public SdCard {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)

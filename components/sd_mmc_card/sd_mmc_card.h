@@ -4,8 +4,8 @@
 
 #ifdef SDMMC_USE_SDMMC
 
-#include "sd_card_content.h"
-#include "sd_card_content_actions.h"
+#include "sd_card.h"
+#include "sd_card_actions.h"
 #include "memory_units.h"
 
 #include "esphome/core/gpio.h"
@@ -37,7 +37,7 @@ struct FileSizeSensor {
 #endif
 
 
-class SdMmc : public Component, public SdCardContent {
+class SdMmc : public Component, public SdCard {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
