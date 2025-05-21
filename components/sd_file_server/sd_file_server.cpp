@@ -1,5 +1,3 @@
-#define protected public
-
 #include "sd_file_server.h"
 #include "path.h"
 
@@ -356,7 +354,8 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
 #ifdef USE_ESP_IDF
   auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), file.data(), file.size());
 #else
-  auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
+  auto *response = request->beginResponseStream(Path::mime_type(path).c_str());
+  response->setContentLength(file.size());
   response->write(file.data(), file.size());
 #endif
 
