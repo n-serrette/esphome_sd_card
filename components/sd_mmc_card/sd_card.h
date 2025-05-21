@@ -19,7 +19,7 @@ struct FileInfo {
 #ifdef USE_ESP_IDF
 class File {
 public:
-  \\ TODO: declare and implement
+  // TODO: declare and implement
 };
 #else // USE_ESP_IDF
 using File = ::File;
