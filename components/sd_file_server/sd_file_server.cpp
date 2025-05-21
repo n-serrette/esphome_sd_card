@@ -23,21 +23,6 @@ esp_err_t get_handler(httpd_req_t *req)
 
 void SDFileServer::setup() { 
   this->base_->add_handler(this);
-#ifdef USE_ESP_IDF
-  httpd_uri_t uri_get = {
-    .uri      = "/uri",
-    .method   = HTTP_GET,
-    .handler  = get_handler,
-    .user_ctx = NULL
-  };
-
-  
-  const auto err = httpd_register_uri_handler(this->base_->server_->server_, &uri_get);
-  if(err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to register get handler: %s", strerror(errno));
-  }
-
-#endif
 }
 
 void SDFileServer::dump_config() {
