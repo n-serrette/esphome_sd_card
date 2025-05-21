@@ -1,5 +1,7 @@
 #pragma once
 
+#include "esphome/core/defines.h"
+
 #include <string>
 #include <vector>
 
@@ -13,6 +15,16 @@ struct FileInfo {
 
   FileInfo(std::string const &, size_t, bool);
 };
+
+#ifdef USE_ESP_IDF
+class File {
+public:
+  \\ TODO: declare and implement
+};
+#else // USE_ESP_IDF
+using File = ::File;
+#endif // USE_ESP_IDF
+
 
 class SdCard {
  public:
