@@ -27,7 +27,7 @@ std::string build_path(const char *path) { return MOUNT_POINT + path; }
 void SdSpi::loop() {}
 
 void SdSpi::dump_config() {
-  ESP_LOGCONFIG(TAG, "SD MMC Component");
+  ESP_LOGCONFIG(TAG, "SD SPI Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
   if (this->power_ctrl_pin_ != nullptr) {
     LOG_PIN("  Power Ctrl Pin: ", this->power_ctrl_pin_);
@@ -137,6 +137,11 @@ void SdSpi::setup() {
 #endif
 
   update_sensors();
+}
+
+File SdSpi::open(const char *path, const char *mode) {
+  const std::string& absolute_path = build_path(path);
+  return File(fopen(absolute_path.c_str(), mode), this->file_size(path));
 }
 
 void SdSpi::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
@@ -262,8 +267,9 @@ bool SdSpi::is_directory(const char *path) {
   DIR *dir = opendir(absolut_path.c_str());
   if (dir) {
     closedir(dir);
+    return true;
   }
-  return dir != nullptr;
+  return false;
 }
 
 size_t SdSpi::file_size(const char *path) {

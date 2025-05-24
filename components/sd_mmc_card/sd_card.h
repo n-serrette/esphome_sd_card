@@ -4,6 +4,11 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+
+#ifdef USE_ESP_IDF
+#include <stdio.h>
+#endif
 
 namespace esphome {
 namespace sd_mmc_card {
@@ -18,16 +23,29 @@ struct FileInfo {
 
 #ifdef USE_ESP_IDF
 class File {
-public:
+ public:
+  File(FILE *file, size_t size) : file_(file), size_(size) {}
+  operator bool() const { return file_.operator bool(); }
+  size_t read(char *buff, size_t len) { return fread(buff, 1, len, this->file_.get()); }
+  size_t size() const { return this->size_; }
+
+ protected:
+  struct FileDeleter {
+    void operator()(FILE *file) { fclose(file); }
+  };
+  std::unique_ptr<FILE, FileDeleter> file_;
+  size_t size_;
   // TODO: declare and implement
 };
-#else // USE_ESP_IDF
+#else   // USE_ESP_IDF
 using File = ::File;
-#endif // USE_ESP_IDF
-
+#endif  // USE_ESP_IDF
 
 class SdCard {
  public:
+  // object API
+  virtual File open(const char *path, const char *mode) = 0;
+
   // sugar
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
   void write_file(const char *path, const uint8_t *buffer, size_t len);

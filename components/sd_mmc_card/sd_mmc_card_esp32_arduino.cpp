@@ -51,8 +51,12 @@ void SdMmc::setup() {
   update_sensors();
 }
 
+File SdMmc::open(const char *path, const char *mode) {
+  return SD_MMC.open(path, mode);
+}
+
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
-  File file = SD_MMC.open(path, mode);
+  File file = this->open(path, mode);
   if (!file) {
     ESP_LOGE(TAG, "Failed to open file for writing");
     return;

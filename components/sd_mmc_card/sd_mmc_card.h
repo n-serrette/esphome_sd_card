@@ -55,6 +55,9 @@ class SdMmc : public Component, public SdCard {
   void setup() override;
   void loop() override;
   void dump_config() override;
+
+  File open(const char *path, const char *mode) override;
+
   void write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) override;
   bool delete_file(const char *path) override;
   bool create_directory(const char *path) override;
