@@ -28,14 +28,13 @@ class File {
   operator bool() const { return file_.operator bool(); }
   size_t read(char *buff, size_t len) { return fread(buff, 1, len, this->file_.get()); }
   size_t size() const { return this->size_; }
-
- protected:
+  int fd() const { return fileno(this->file_.get()); }
+  protected:
   struct FileDeleter {
     void operator()(FILE *file) { fclose(file); }
   };
   std::unique_ptr<FILE, FileDeleter> file_;
   size_t size_;
-  // TODO: declare and implement
 };
 #else   // USE_ESP_IDF
 using File = ::File;
