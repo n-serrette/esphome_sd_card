@@ -17,7 +17,7 @@ namespace sd_file_server {
 
 constexpr size_t max_read = 1024;
 constexpr size_t max_send = 1024;
-constexpr size_t download_buffer = 1024 * 4;
+constexpr size_t download_buffer = max_read * 4;
 constexpr bool add_noblock_file = true;
 constexpr bool add_noblock_response = true;
 

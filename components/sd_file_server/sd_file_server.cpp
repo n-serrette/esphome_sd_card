@@ -176,9 +176,9 @@ void SDFileServer::loop() {
       // ESP_LOGVV(TAG, "buffer: read: %p + %d, write: %p + %d", response.buffer.read_ptr(),
       //           response.buffer.bytes_to_read(), response.buffer.write_ptr(), response.buffer.bytes_to_write());
     } else {
-      ESP_LOGVV(TAG, "Read skip: is_set: %ld,  has space: %d, not full: %d, not done: %d",
-                FD_ISSET(response.file_fd(), &rfds), response.buffer.bytes_to_write() >= max_read,
-                !response.buffer.full(), !response.read_done);
+      ESP_LOGVV(TAG, "Read skip: is_set: %ld,  has space: %u, not full: %d, not done: %d",
+                FD_ISSET(response.file_fd(), &rfds), response.buffer.bytes_to_write(), !response.buffer.full(),
+                !response.read_done);
     }
 
     if (FD_ISSET(response.resp_fd(), &wfds) && (response.read_done || !response.buffer.empty())) {
@@ -319,15 +319,11 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
   std::string uri = "/" + Path::join(this->url_prefix_, Path::remove_root_path(info.path, this->root_path_));
   std::string file_name = Path::file_name(info.path);
   response->print("<tr><td>");
-  if (info.is_directory) {
-    response->print("<a href=\"");
-    response->print(uri.c_str());
-    response->print("\">");
-    response->print(file_name.c_str());
-    response->print("</a>");
-  } else {
-    response->print(file_name.c_str());
-  }
+  response->print("<a href=\"");
+  response->print(uri.c_str());
+  response->print("\">");
+  response->print(file_name.c_str());
+  response->print("</a>");
   response->print("</td><td>");
 
   if (info.is_directory) {
@@ -344,11 +340,9 @@ void SDFileServer::write_row(AsyncResponseStream *response, sd_mmc_card::FileInf
   response->print("</td><td><div class=\"file-actions\">");
   if (!info.is_directory) {
     if (this->download_enabled_) {
-      response->print("<button onClick=\"download_file('");
-      response->print(uri.c_str());
-      response->print("','");
-      response->print(file_name.c_str());
-      response->print("')\">Download</button>");
+      response->printf(
+          R"(<form method="get" action="%s"><input type="hidden" name="download" value="true" /> <button type="submit">Download</button></form>)",
+          uri.c_str());
     }
     if (this->deletion_enabled_) {
       response->print("<button onClick=\"delete_file('");
@@ -545,16 +539,26 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     request->send(401, "application/json", "{ \"error\": \"failed to open file\" }");
     return;
   }
+
+  const auto download = [&] {
+    const auto param = request->getParam("download");
+    return param && param->value() == "true";
+  }();
+
 #ifdef USE_ESP_IDF
   // httpd_resp_send(*request, "Hello there", HTTPD_RESP_USE_STRLEN);
   const auto size_start_time = esp_timer_get_time();
   const auto data_len = file.size();
+
   ESP_LOGV(TAG, "file_size(%s) (%llu us)", path.c_str(), esp_timer_get_time() - size_start_time);
 
   const auto header_start_time = esp_timer_get_time();
   httpd_printf(*request, "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %d\r\n", HTTPD_200,
                Path::mime_type(path).c_str(), data_len);
   httpd_print(*request, "Cache-Control: no-cache\r\n");
+  if (download) {
+    httpd_printf(*request, "Content-Disposition: attachment; filename=\"%s\";\r\n", Path::file_name(path).c_str());
+  }
   httpd_print(*request, "\r\n");
   auto fd = httpd_req_to_sockfd(*request);
   esp_http_server_dispatch_event(HTTP_SERVER_EVENT_HEADERS_SENT, &fd, sizeof(int));
@@ -580,7 +584,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     this->downloadResponses_.emplace_back(std::move(file), async_req);
   }
 #else   // USE_ESP_IDF
-  request->send(request->beginResponse(file, path));
+  request->send(request->beginResponse(file, path, download));
 #endif  // USE_ESP_IDF
 }
 
