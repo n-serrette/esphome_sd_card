@@ -6,11 +6,11 @@
 #include "math.h"
 #include "esphome/core/log.h"
 extern "C" {
-  #include "esp_vfs.h"
-  #include "esp_vfs_fat.h"
-  #include "sdmmc_cmd.h"
-  #include "driver/sdmmc_host.h"
-  #include "driver/sdmmc_types.h"
+#include "esp_vfs.h"
+#include "esp_vfs_fat.h"
+#include "sdmmc_cmd.h"
+#include "driver/sdmmc_host.h"
+#include "driver/sdmmc_types.h"
 }
 
 int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
@@ -29,14 +29,18 @@ void SdSpi::loop() {}
 void SdSpi::dump_config() {
   ESP_LOGCONFIG(TAG, "SD SPI Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
+  ESP_LOGCONFIG(TAG, "  Data Rate: %ld", this->data_rate_);
   if (this->power_ctrl_pin_ != nullptr) {
     LOG_PIN("  Power Ctrl Pin: ", this->power_ctrl_pin_);
   }
+  LOG_PIN("  CS Pin:", this->cs_);
 
 #ifdef USE_SENSOR
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
   LOG_SENSOR("  ", "Free space", this->free_space_sensor_);
+  LOG_SENSOR("  ", "Max Frequency", this->max_frequency_sensor_);
+  LOG_SENSOR("  ", "Real Frequency", this->real_frequency_sensor_);
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
       LOG_SENSOR("  ", "File size", sensor.sensor);
@@ -65,34 +69,34 @@ std::string SdSpi::error_code_to_string(SdSpi::ErrorCode code) {
   }
 }
 
-
 #ifdef USE_SENSOR
 void SdSpi::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
   this->file_size_sensors_.emplace_back(sensor, path);
 }
 #endif
 
-
 void SdSpi::setup() {
   if (this->power_ctrl_pin_ != nullptr)
     this->power_ctrl_pin_->setup();
 
-  auto setup_input_pullup = [](GPIOPin* pin) {
-    pin->pin_mode(gpio::FLAG_INPUT|gpio::FLAG_PULLUP);
+  auto setup_input_pullup = [](GPIOPin *pin) {
+    pin->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_PULLUP);
     pin->setup();
   };
   if (this->data1_pin_ != nullptr)
     setup_input_pullup(this->data1_pin_);
   if (this->data2_pin_ != nullptr)
     setup_input_pullup(this->data2_pin_);
-  
+
   this->spi_setup();
 
-  esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-    .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024, .disk_status_check_enable = false};
+  esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
+                                                   .max_files = 5,
+                                                   .allocation_unit_size = 16 * 1024,
+                                                   .disk_status_check_enable = false};
 
   const auto init_err = sdspi_host_init();
-  if(init_err != ESP_OK) {
+  if (init_err != ESP_OK) {
     ESP_LOGE(TAG, "Failed init sdspi host: %s", esp_err_to_name(init_err));
     this->mark_failed();
     return;
@@ -101,31 +105,45 @@ void SdSpi::setup() {
 
   sdmmc_host_t host = SDSPI_HOST_DEFAULT();
   host.slot = this->spi_interface_;
-  // host.max_freq_khz = SDMMC_FREQ_PROBING;
 
   sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+  // this->data_rate_
   slot_config.host_id = this->spi_interface_;
   slot_config.gpio_cs = static_cast<gpio_num_t>(spi::Utility::get_pin_no(this->cs_));
 
-  ESP_LOGV(TAG, "Mounting file system:\n spi host: %s\n max_freq_khz: %d", [](spi_host_device_t spi) -> const char*{
-    switch (spi)
-    {
-    case SPI1_HOST:
-      return "SPI1_HOST";
-    case SPI2_HOST:
-      return "SPI2_HOST";
-    default:
+  esp_err_t mount_error = ESP_OK;
+  for (const auto freq_khz : {// SDMMC_FREQ_HIGHSPEED,
+                              SDMMC_FREQ_DEFAULT, SDMMC_FREQ_PROBING}) {
+    host.max_freq_khz = freq_khz;
+    ESP_LOGV(
+        TAG, "Mounting file system:\n spi host: %s\n max_freq_khz: %d",
+        [](spi_host_device_t spi) -> const char * {
+          switch (spi) {
+            case SPI1_HOST:
+              return "SPI1_HOST";
+            case SPI2_HOST:
+              return "SPI2_HOST";
+            default:
+              break;
+          }
+          return "unknown";
+        }(slot_config.host_id),
+        host.max_freq_khz);
+    mount_error = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
+    if (mount_error != ESP_ERR_INVALID_RESPONSE) {
       break;
     }
-    return "unknown";
-  }(slot_config.host_id), host.max_freq_khz);
-  auto ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
-  if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to mount FAT fs: %s", esp_err_to_name(ret));
-    if (ret == ESP_FAIL) {
-      this->init_error_ = ErrorCode::ERR_MOUNT;
-    } else {
-      this->init_error_ = ErrorCode::ERR_NO_CARD;
+  }
+  if (mount_error != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to mount FAT fs: %s", esp_err_to_name(mount_error));
+    switch (mount_error) {
+      case ESP_FAIL:
+      case ESP_ERR_INVALID_CRC:
+        this->init_error_ = ErrorCode::ERR_MOUNT;
+        break;
+      case ESP_ERR_TIMEOUT:
+      default:
+        this->init_error_ = ErrorCode::ERR_NO_CARD;
     }
     mark_failed();
     return;
@@ -136,18 +154,24 @@ void SdSpi::setup() {
     this->sd_card_type_text_sensor_->publish_state(sd_card_type());
 #endif
 
+#ifdef USE_SENSOR
+  if (this->max_frequency_sensor_)
+    this->max_frequency_sensor_->publish_state(this->card_->max_freq_khz);
+  if (this->real_frequency_sensor_)
+    this->real_frequency_sensor_->publish_state(this->card_->real_freq_khz);
+#endif  // USE_SENSOR
   update_sensors();
 }
 
 File SdSpi::open(const char *path, const char *mode) {
-  const std::string& absolute_path = build_path(path);
+  const std::string &absolute_path = build_path(path);
   return File(fopen(absolute_path.c_str(), mode), this->file_size(path));
 }
 
 void SdSpi::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
-  std::string absolut_path = build_path(path);
+  std::string absolute_path = build_path(path);
   FILE *file = NULL;
-  file = fopen(absolut_path.c_str(), mode);
+  file = fopen(absolute_path.c_str(), mode);
   if (file == NULL) {
     ESP_LOGE(TAG, "Failed to open file for writing");
     return;
@@ -162,8 +186,8 @@ void SdSpi::write_file(const char *path, const uint8_t *buffer, size_t len, cons
 
 bool SdSpi::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
-  std::string absolut_path = build_path(path);
-  if (mkdir(absolut_path.c_str(), 0777) < 0) {
+  std::string absolute_path = build_path(path);
+  if (mkdir(absolute_path.c_str(), 0777) < 0) {
     ESP_LOGE(TAG, "Failed to create a new directory: %s", strerror(errno));
     return false;
   }
@@ -177,8 +201,8 @@ bool SdSpi::remove_directory(const char *path) {
     ESP_LOGE(TAG, "Not a directory");
     return false;
   }
-  std::string absolut_path = build_path(path);
-  if (remove(absolut_path.c_str()) != 0) {
+  std::string absolute_path = build_path(path);
+  if (remove(absolute_path.c_str()) != 0) {
     ESP_LOGE(TAG, "Failed to remove directory: %s", strerror(errno));
   }
   this->update_sensors();
@@ -191,8 +215,8 @@ bool SdSpi::delete_file(const char *path) {
     ESP_LOGE(TAG, "Not a file");
     return false;
   }
-  std::string absolut_path = build_path(path);
-  if (remove(absolut_path.c_str()) != 0) {
+  std::string absolute_path = build_path(path);
+  if (remove(absolute_path.c_str()) != 0) {
     ESP_LOGE(TAG, "Failed to remove file: %s", strerror(errno));
   }
   this->update_sensors();
@@ -202,9 +226,9 @@ bool SdSpi::delete_file(const char *path) {
 std::vector<uint8_t> SdSpi::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
 
-  std::string absolut_path = build_path(path);
+  std::string absolute_path = build_path(path);
   FILE *file = nullptr;
-  file = fopen(absolut_path.c_str(), "rb");
+  file = fopen(absolute_path.c_str(), "rb");
   if (file == nullptr) {
     ESP_LOGE(TAG, "Failed to open file for reading");
     return std::vector<uint8_t>();
@@ -226,13 +250,13 @@ std::vector<uint8_t> SdSpi::read_file(char const *path) {
 std::vector<FileInfo> &SdSpi::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
-  std::string absolut_path = build_path(path);
-  DIR *dir = opendir(absolut_path.c_str());
+  std::string absolute_path = build_path(path);
+  DIR *dir = opendir(absolute_path.c_str());
   if (!dir) {
     ESP_LOGE(TAG, "Failed to open directory: %s", strerror(errno));
     return list;
   }
-  char entry_absolut_path[FILE_PATH_MAX];
+  char entry_absolute_path[FILE_PATH_MAX];
   char entry_path[FILE_PATH_MAX];
   const size_t dirpath_len = MOUNT_POINT.size();
   size_t entry_path_len = strlen(path);
@@ -240,31 +264,31 @@ std::vector<FileInfo> &SdSpi::list_directory_file_info_rec(const char *path, uin
   strlcpy(entry_path + entry_path_len, "/", sizeof(entry_path) - entry_path_len);
   entry_path_len = strlen(entry_path);
 
-  strlcpy(entry_absolut_path, MOUNT_POINT.c_str(), sizeof(entry_absolut_path));
+  strlcpy(entry_absolute_path, MOUNT_POINT.c_str(), sizeof(entry_absolute_path));
   struct dirent *entry;
   while ((entry = readdir(dir)) != nullptr) {
     size_t file_size = 0;
     strlcpy(entry_path + entry_path_len, entry->d_name, sizeof(entry_path) - entry_path_len);
-    strlcpy(entry_absolut_path + dirpath_len, entry_path, sizeof(entry_absolut_path) - dirpath_len);
+    strlcpy(entry_absolute_path + dirpath_len, entry_path, sizeof(entry_absolute_path) - dirpath_len);
     if (entry->d_type != DT_DIR) {
       struct stat info;
-      if (stat(entry_absolut_path, &info) < 0) {
-        ESP_LOGE(TAG, "Failed to stat file: %s '%s' %s", strerror(errno), entry->d_name, entry_absolut_path);
+      if (stat(entry_absolute_path, &info) < 0) {
+        ESP_LOGE(TAG, "Failed to stat file: %s '%s' %s", strerror(errno), entry->d_name, entry_absolute_path);
       } else {
         file_size = info.st_size;
       }
     }
     list.emplace_back(entry_path, file_size, entry->d_type == DT_DIR);
     if (entry->d_type == DT_DIR && depth)
-      this->list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
+      this->list_directory_file_info_rec(entry_absolute_path, depth - 1, list);
   }
   closedir(dir);
   return list;
 }
 
 bool SdSpi::is_directory(const char *path) {
-  std::string absolut_path = build_path(path);
-  DIR *dir = opendir(absolut_path.c_str());
+  std::string absolute_path = build_path(path);
+  DIR *dir = opendir(absolute_path.c_str());
   if (dir) {
     closedir(dir);
     return true;
@@ -273,10 +297,10 @@ bool SdSpi::is_directory(const char *path) {
 }
 
 size_t SdSpi::file_size(const char *path) {
-  std::string absolut_path = build_path(path);
+  std::string absolute_path = build_path(path);
   struct stat info;
   size_t file_size = 0;
-  if (stat(absolut_path.c_str(), &info) < 0) {
+  if (stat(absolute_path.c_str(), &info) < 0) {
     ESP_LOGE(TAG, "Failed to stat file: %s", strerror(errno));
     return -1;
   }
@@ -330,4 +354,4 @@ void SdSpi::update_sensors() {
 }  // namespace esphome
 
 #endif  // USE_ESP_IDF
-#endif // SDMMC_USE_SDSPI
+#endif  // SDMMC_USE_SDSPI

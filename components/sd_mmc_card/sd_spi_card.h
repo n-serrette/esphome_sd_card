@@ -43,6 +43,8 @@ spi::DATA_RATE_10MHZ>, public Component, public SdCard {
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
   SUB_SENSOR(free_space)
+  SUB_SENSOR(max_frequency)
+  SUB_SENSOR(real_frequency)
 #endif
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)
