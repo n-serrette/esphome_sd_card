@@ -31,7 +31,8 @@ class File {
   size_t size() const { return this->size_; }
   int seek(size_t off) { return fseek(this->file_.get(), off, SEEK_SET); }
   int fd() const { return fileno(this->file_.get()); }
-  protected:
+
+ protected:
   struct FileDeleter {
     void operator()(FILE *file) { fclose(file); }
   };

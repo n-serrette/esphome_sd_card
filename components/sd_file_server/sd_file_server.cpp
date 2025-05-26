@@ -590,7 +590,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
       }
     }
 
-    for (;;) {
+    for (; !stream.eof();) {
       ESP_LOGVV(TAG, "processing range part");
       std::optional<size_t> first;
       std::optional<size_t> last;
@@ -657,6 +657,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
 
       if (stream.eof())
         break;
+
       if (stream.get() != ',') {
         httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, "Invalid Range header: comma expected");
         return;
@@ -681,7 +682,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
       httpd_resp_send_custom_err(*request, "416 Range Not Satisfiable", "file is shorter then requested");
       return;
     }
-    if (*range_begin != 0) {
+    if (range_begin && *range_begin != 0) {
       file.seek(*range_begin);
     }
     httpd_print(*request, "HTTP/1.1 206 Partial Content\r\n");
