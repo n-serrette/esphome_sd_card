@@ -2,6 +2,7 @@
 
 #include "esphome/core/defines.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <memory>
@@ -28,6 +29,7 @@ class File {
   operator bool() const { return file_.operator bool(); }
   size_t read(char *buff, size_t len) { return fread(buff, 1, len, this->file_.get()); }
   size_t size() const { return this->size_; }
+  int seek(size_t off) { return fseek(this->file_.get(), off, SEEK_SET); }
   int fd() const { return fileno(this->file_.get()); }
   protected:
   struct FileDeleter {

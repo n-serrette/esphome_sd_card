@@ -21,7 +21,6 @@ constexpr size_t download_buffer = max_read * 4;
 constexpr bool add_noblock_file = true;
 constexpr bool add_noblock_response = true;
 
-
 class SDFileServer : public Component, public AsyncWebHandler {
  public:
   SDFileServer(web_server_base::WebServerBase *);
@@ -94,7 +93,8 @@ class SDFileServer : public Component, public AsyncWebHandler {
       bool full() const { return bytes_to_write() == 0; }
     } buffer;
 
-    DownloadResponse(sd_mmc_card::File file, httpd_req_t *req) : file_(std::move(file)), req_(req) {
+    DownloadResponse(sd_mmc_card::File file, httpd_req_t *req, size_t len)
+        : file_(std::move(file)), req_(req), bytes_to_send(len) {
       file_fd_ = file_.fd();
       resp_fd_ = httpd_req_to_sockfd(req);
     }
@@ -102,7 +102,7 @@ class SDFileServer : public Component, public AsyncWebHandler {
     int file_fd() const { return file_fd_; }
     int resp_fd() const { return resp_fd_; }
     httpd_req_t *req() const { return req_; }
-    sd_mmc_card::File& file() { return file_; }
+    sd_mmc_card::File &file() { return file_; }
 
    protected:
     sd_mmc_card::File file_;
@@ -112,6 +112,7 @@ class SDFileServer : public Component, public AsyncWebHandler {
 
    public:
     int bytes_sent = 0;
+    int bytes_to_send = 0;
     bool scheduled = false;
     bool read_done = false;
     bool completed = false;

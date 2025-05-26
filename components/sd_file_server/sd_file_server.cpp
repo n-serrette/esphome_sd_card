@@ -3,11 +3,19 @@
 #include "path.h"
 
 #include <esp_timer.h>
+#include <algorithm>
 #include <cstddef>
+#include <sstream>
+#include <string>
+#include <optional>
 
 #include "esphome/core/log.h"
 #include "esphome/components/network/util.h"
 #include "esphome/core/helpers.h"
+
+#ifdef USE_ESP_IDF
+#include "esp_idf_version.h"
+#endif
 
 namespace esphome {
 namespace sd_file_server {
@@ -60,6 +68,21 @@ esp_err_t esp_http_server_dispatch_event(int32_t event_id, const void *event_dat
   return err;
 }
 
+template<typename T> std::istream &operator>>(std::istream &is, std::optional<T> &obj) {
+  if (T result; is >> result)
+    obj = result;
+  else
+    obj = {};
+  return is;
+}
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 3, 0)
+esp_err_t httpd_resp_send_custom_err(httpd_req_t *req, const char *status, const char *msg) {
+  httpd_resp_set_status(req, status);
+  httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
+  return httpd_resp_send(req, msg, HTTPD_RESP_USE_STRLEN);
+}
+#endif
 #endif  // USE_ESP_IDF
 
 SDFileServer::SDFileServer(web_server_base::WebServerBase *base) : base_(base) {}
@@ -154,10 +177,10 @@ void SDFileServer::loop() {
     if (response.scheduled)
       continue;
 
-    if (FD_ISSET(response.file_fd(), &rfds) && response.buffer.bytes_to_write() >= max_read &&
-        !response.buffer.full() && !response.read_done) {
-      const auto to_read = std::min<size_t>(response.buffer.bytes_to_write(), max_read);
-
+    const auto to_read =
+        std::min<size_t>(std::min<size_t>(response.buffer.bytes_to_write(), response.bytes_to_send), max_read);
+    if (FD_ISSET(response.file_fd(), &rfds) && response.buffer.bytes_to_write() >= max_read && to_read != 0 &&
+        !response.read_done) {
       const auto start_time = esp_timer_get_time();
       const auto read_bytes = response.file().read(response.buffer.write_ptr(), to_read);
       // read(response.file_fd(), response.buffer.write_ptr(), to_read);
@@ -172,13 +195,18 @@ void SDFileServer::loop() {
         response.read_done = true;
       } else {
         response.buffer.submit_write(read_bytes);
+        response.bytes_to_send -= read_bytes;
+        if (response.bytes_to_send == 0) {
+          ESP_LOGV(TAG, "reading part is done");
+          response.read_done = true;
+        }
       }
       // ESP_LOGVV(TAG, "buffer: read: %p + %d, write: %p + %d", response.buffer.read_ptr(),
       //           response.buffer.bytes_to_read(), response.buffer.write_ptr(), response.buffer.bytes_to_write());
     } else {
-      ESP_LOGVV(TAG, "Read skip: is_set: %ld,  has space: %u, not full: %d, not done: %d",
+      ESP_LOGVV(TAG, "Read skip: is_set: %ld,  has space: %u, not full: %d, not done: %d, to read: %d",
                 FD_ISSET(response.file_fd(), &rfds), response.buffer.bytes_to_write(), !response.buffer.full(),
-                !response.read_done);
+                !response.read_done, to_read);
     }
 
     if (FD_ISSET(response.resp_fd(), &wfds) && (response.read_done || !response.buffer.empty())) {
@@ -546,23 +574,139 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
   }();
 
 #ifdef USE_ESP_IDF
-  // httpd_resp_send(*request, "Hello there", HTTPD_RESP_USE_STRLEN);
   const auto size_start_time = esp_timer_get_time();
   const auto data_len = file.size();
 
-  ESP_LOGV(TAG, "file_size(%s) (%llu us)", path.c_str(), esp_timer_get_time() - size_start_time);
+  std::optional<size_t> range_begin;
+  std::optional<size_t> range_end;
+  if (const auto range_header = request->get_header("Range")) {
+    ESP_LOGV(TAG, "Range header: %s", range_header->c_str());
+    std::istringstream stream(*range_header);
+    const std::string prefix = "bytes=";
+    for (auto &&c : prefix) {
+      if (stream.get() != c) {
+        httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, "Only bytes range supported");
+        return;
+      }
+    }
 
+    for (;;) {
+      ESP_LOGVV(TAG, "processing range part");
+      std::optional<size_t> first;
+      std::optional<size_t> last;
+      stream >> std::ws;
+      const auto first_byte = stream.peek();
+      if (first_byte == '-') {
+        stream.get();
+        stream >> std::ws >> last >> std::ws;
+        if (last) {
+          ESP_LOGVV(TAG, "range part from end: %d", *last);
+        } else {
+          ESP_LOGVV(TAG, "range part from end: none");
+        }
+
+        if (data_len < *last) {
+          httpd_resp_send_custom_err(*request, "416 Range Not Satisfiable", "reverse range too long");
+          return;
+        }
+        first = data_len - *last;
+        last.reset();
+      } else {
+        stream >> first >> std::ws;
+        if (first) {
+          ESP_LOGVV(TAG, "range part first: %d", *first);
+        } else {
+          ESP_LOGVV(TAG, "range part first: none");
+        }
+        const auto c = stream.get();
+        switch (c) {
+          case '-':
+            stream >> std::ws >> last >> std::ws;
+            if (last) {
+              ESP_LOGVV(TAG, "range part last: %d", *last);
+            } else {
+              ESP_LOGVV(TAG, "range part last: none");
+            }
+            break;
+          case ',':
+            ESP_LOGVV(TAG, "range part: ,");
+            break;
+          case EOF:
+            ESP_LOGVV(TAG, "range part: EOF");
+            break;
+          default: {
+            std::string err = "Invalid Range header: '-' or ',' expected, got ";
+            err += c;
+            httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, err.c_str());
+            return;
+          }
+        }
+      }
+
+      if (!first && !last) {
+        httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, "Invalid Range header: at least one number expected");
+        return;
+      }
+      const auto end = last ? *last + 1 : data_len;
+      if (*first > end) {
+        httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, "Invalid Range header: last greater then first");
+        return;
+      }
+      range_begin = range_begin ? std::min(*first, *range_begin) : *first;
+      range_end = range_end ? std::max(*range_end, end) : end;
+
+      if (stream.eof())
+        break;
+      if (stream.get() != ',') {
+        httpd_resp_send_err(*request, HTTPD_400_BAD_REQUEST, "Invalid Range header: comma expected");
+        return;
+      }
+    }
+
+    if (!range_begin)
+      range_begin = 0;
+    if (!range_end)
+      range_end = data_len;
+
+    if (*range_begin == 0 && *range_end == data_len) {
+      range_begin.reset();
+      range_end.reset();
+    }
+  }
+
+  ESP_LOGV(TAG, "file_size(%s) (%llu us)", path.c_str(), esp_timer_get_time() - size_start_time);
   const auto header_start_time = esp_timer_get_time();
-  httpd_printf(*request, "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %d\r\n", HTTPD_200,
-               Path::mime_type(path).c_str(), data_len);
+  if (range_begin && range_end && data_len > 0) {
+    if (*range_end > data_len) {
+      httpd_resp_send_custom_err(*request, "416 Range Not Satisfiable", "file is shorter then requested");
+      return;
+    }
+    if (*range_begin != 0) {
+      file.seek(*range_begin);
+    }
+    httpd_print(*request, "HTTP/1.1 206 Partial Content\r\n");
+    httpd_printf(*request, "Content-Type: %s\r\n", Path::mime_type(path).c_str());
+    httpd_printf(*request,
+                 "Content-Length: %d\r\n"
+                 "Content-Range: bytes %d-%d/%d\r\n",
+                 *range_end - *range_begin, *range_begin, *range_end - 1, data_len);
+  } else {
+    httpd_printf(*request,
+                 "HTTP/1.1 %s\r\n"
+                 "Content-Type: %s\r\n"
+                 "Content-Length: %d\r\n",
+                 HTTPD_200, Path::mime_type(path).c_str(), data_len);
+  }
   httpd_print(*request, "Cache-Control: no-cache\r\n");
+  httpd_print(*request, "Accept-Ranges: bytes\r\n");
   if (download) {
     httpd_printf(*request, "Content-Disposition: attachment; filename=\"%s\";\r\n", Path::file_name(path).c_str());
   }
   httpd_print(*request, "\r\n");
+  ESP_LOGV(TAG, "header sent (%llu us)", esp_timer_get_time() - header_start_time);
+
   auto fd = httpd_req_to_sockfd(*request);
   esp_http_server_dispatch_event(HTTP_SERVER_EVENT_HEADERS_SENT, &fd, sizeof(int));
-  ESP_LOGV(TAG, "header sent (%llu us)", esp_timer_get_time() - header_start_time);
 
   httpd_req_t *async_req;
   const auto err = httpd_req_async_handler_begin(*request, &async_req);
@@ -581,7 +725,8 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     }
 
     LockGuard lg(this->downloadResponses_mutex_);
-    this->downloadResponses_.emplace_back(std::move(file), async_req);
+    const auto to_send = range_end ? (*range_end - *range_begin) : data_len;
+    this->downloadResponses_.emplace_back(std::move(file), async_req, to_send);
   }
 #else   // USE_ESP_IDF
   request->send(request->beginResponse(file, path, download));
