@@ -297,8 +297,10 @@ void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &fi
   }
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
+  ESP_LOGV(TAG, "Upload requested for url %s, path is %s", request->url().c_str(), path.c_str());
 
   if (index == 0 && !this->sd_mmc_card_->is_directory(path)) {
+    ESP_LOGV(TAG, "It's not a folder");
     auto response = request->beginResponse(401, "application/json", "{ \"error\": \"invalid upload folder\" }");
     response->addHeader("Connection", "close");
     request->send(response);
@@ -522,7 +524,13 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
   response->print(F("</div>"));
 
   if (this->upload_enabled_)
-    response->print(F("<div class=\"upload-form\"><form method=\"POST\" enctype=\"multipart/form-data\">"
+    response->print(F("<div class=\"upload-form\"><form method=\"POST\" enctype=\""
+#ifdef USE_ESP_IDF
+                      "application/x-www-form-urlencoded"
+#else
+                      "multipart/form-data"
+#endif
+                      "\">"
                       "<input type=\"file\" name=\"file\"><input type=\"submit\" value=\"upload\"></form></div>"));
 
   response->print(F("<table><thead><tr>"
@@ -698,6 +706,20 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
                  "Content-Length: %d\r\n",
                  HTTPD_200, Path::mime_type(path).c_str(), data_len);
   }
+
+  struct stat file_stat;
+  if (-1 == fstat(file.fd(), &file_stat) && file_stat.st_mtime) {
+    ESP_LOGE(TAG, "fstat call failed: %s", strerror(errno));
+  } else if (file_stat.st_mtime == 0) {
+    ESP_LOGI(TAG, "st_mtime is 0. Not sending.");
+  } else {
+    time_t mtime = file_stat.st_mtime;
+    struct tm *tm_info = gmtime(&mtime);
+    char buffer[128];
+    if (0 != strftime(buffer, sizeof(buffer), "Last-Modified: %a, %d %b %Y %H:%M:%S GMT\r\n", tm_info))
+      httpd_print(*request, buffer);
+  }
+
   httpd_print(*request, "Cache-Control: no-cache\r\n");
   httpd_print(*request, "Accept-Ranges: bytes\r\n");
   if (download) {

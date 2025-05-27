@@ -8,8 +8,6 @@
 extern "C" {
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
 }
 
@@ -29,7 +27,7 @@ void SdSpi::loop() {}
 void SdSpi::dump_config() {
   ESP_LOGCONFIG(TAG, "SD SPI Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
-  ESP_LOGCONFIG(TAG, "  Data Rate: %ld", this->data_rate_);
+  ESP_LOGCONFIG(TAG, "  Data Rate: %" PRIu32 "", this->data_rate_);
   if (this->power_ctrl_pin_ != nullptr) {
     LOG_PIN("  Power Ctrl Pin: ", this->power_ctrl_pin_);
   }
