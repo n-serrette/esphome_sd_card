@@ -9,7 +9,6 @@
 extern "C" {
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
-#include "driver/sdmmc_types.h"
 }
 
 int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
