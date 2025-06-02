@@ -5,8 +5,8 @@ from esphome.components.web_server_base import CONF_WEB_SERVER_BASE_ID
 from esphome.const import (
     CONF_ID
 )
-from esphome.core import coroutine_with_priority, CORE
-from .. import sd_mmc_card
+from esphome.core import coroutine_with_priority
+from esphome.components import sd_mmc_card
 
 CONF_URL_PREFIX = "url_prefix"
 CONF_ROOT_PATH = "root_path"

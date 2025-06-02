@@ -58,6 +58,7 @@ spi::DATA_RATE_10MHZ>, public Component, public SdCard {
   void setup() override;
   void loop() override;
   void dump_config() override;
+  float get_setup_priority() const override  { return setup_priority::IO; }
 
   File open(const char *path, const char *mode) override;
 

@@ -1,3 +1,4 @@
+#include <cerrno>
 #include "sd_spi_card.h"
 
 #ifdef SDMMC_USE_SDSPI
@@ -88,10 +89,11 @@ void SdSpi::setup() {
 
   this->spi_setup();
 
-  esp_vfs_fat_sdmmc_mount_config_t mount_config = {.format_if_mount_failed = false,
-                                                   .max_files = 5,
-                                                   .allocation_unit_size = 16 * 1024,
-                                                   .disk_status_check_enable = false};
+  esp_vfs_fat_sdmmc_mount_config_t mount_config = VFS_FAT_MOUNT_DEFAULT_CONFIG();
+  mount_config.format_if_mount_failed = false;
+  mount_config.max_files = 5;
+  mount_config.allocation_unit_size = 16 * 1024;
+  mount_config.disk_status_check_enable = false;
 
   const auto init_err = sdspi_host_init();
   if (init_err != ESP_OK) {
@@ -163,7 +165,20 @@ void SdSpi::setup() {
 
 File SdSpi::open(const char *path, const char *mode) {
   const std::string &absolute_path = build_path(path);
-  return File(fopen(absolute_path.c_str(), mode), this->file_size(path));
+  ESP_LOGVV(TAG, "Opening file %s (absolute: %s) %s mode", path, absolute_path.c_str(), mode);
+  auto file = fopen(absolute_path.c_str(), mode);
+  size_t file_size = 0;
+  if (file) {
+    struct stat info;
+    auto fd = fileno(file);
+    ESP_LOGVV(TAG, "Calling fstat(%i)", fd);
+    if (fstat(fd, &info) < 0) {
+      ESP_LOGE(TAG, "Failed to fstat file %s (absolute: %s): %s", path, absolute_path.c_str(), strerror(errno));
+    } else {
+      file_size = info.st_size;
+    }
+  }
+  return File(file, file_size);
 }
 
 void SdSpi::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
@@ -237,9 +252,11 @@ std::vector<uint8_t> SdSpi::read_file(char const *path) {
   res.resize(fileSize);
   size_t len = fread(res.data(), 1, fileSize, file);
   fclose(file);
-  if (len < 0) {
-    ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
-    return std::vector<uint8_t>();
+  if (len == 0) {
+    if (ferror(file)) {
+      ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+      return std::vector<uint8_t>();
+    }
   }
 
   return res;
@@ -299,7 +316,8 @@ size_t SdSpi::file_size(const char *path) {
   struct stat info;
   size_t file_size = 0;
   if (stat(absolute_path.c_str(), &info) < 0) {
-    ESP_LOGE(TAG, "Failed to stat file: %s", strerror(errno));
+    ESP_LOGE(TAG, "Failed to stat file %s (absolute: %s): %s", path, absolute_path.c_str(), strerror(errno));
+    errno = 0;
     return -1;
   }
   return info.st_size;
