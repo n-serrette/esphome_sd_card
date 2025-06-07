@@ -11,6 +11,16 @@ extern "C" {
 #include "esp_vfs_fat.h"
 }
 
+#ifndef VFS_FAT_MOUNT_DEFAULT_CONFIG
+#define VFS_FAT_MOUNT_DEFAULT_CONFIG() \
+    { \
+        .format_if_mount_failed = false, \
+        .max_files = 5, \
+        .allocation_unit_size = 0, \
+        .disk_status_check_enable = false, \
+    }
+#endif // VFS_FAT_MOUNT_DEFAULT_CONFIG
+
 int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
 
 namespace esphome {
