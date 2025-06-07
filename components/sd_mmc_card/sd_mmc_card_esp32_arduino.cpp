@@ -1,5 +1,6 @@
 #include "sd_mmc_card.h"
 
+#ifdef SDMMC_USE_SDMMC
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
 
 #include "math.h"
@@ -50,8 +51,12 @@ void SdMmc::setup() {
   update_sensors();
 }
 
+File SdMmc::open(const char *path, const char *mode) {
+  return SD_MMC.open(path, mode);
+}
+
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
-  File file = SD_MMC.open(path, mode);
+  File file = this->open(path, mode);
   if (!file) {
     ESP_LOGE(TAG, "Failed to open file for writing");
     return;
@@ -127,7 +132,7 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
     list.emplace_back(file.path(), file.size(), file.isDirectory());
     if (file.isDirectory()) {
       if (depth) {
-        list_directory_file_info_rec(file.path(), depth - 1, list);
+        this->list_directory_file_info_rec(file.path(), depth - 1, list);
       }
     }
     file = root.openNextFile();
@@ -187,3 +192,4 @@ void SdMmc::update_sensors() {
 }  // namespace esphome
 
 #endif  // USE_ESP32_FRAMEWORK_ARDUINO
+#endif // SDMMC_USE_SDMMC

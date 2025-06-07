@@ -1,6 +1,9 @@
+
 #include "sd_mmc_card.h"
 
-#ifdef USE_ESP_IDF
+#ifdef SDMMC_USE_SDMMC
+#if defined(USE_ESP_IDF) && defined(SDMMC_HOST_DEFAULT)
+
 #include "math.h"
 #include "esphome/core/log.h"
 #include "esp_vfs.h"
@@ -185,7 +188,7 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
     }
     list.emplace_back(entry_path, file_size, entry->d_type == DT_DIR);
     if (entry->d_type == DT_DIR && depth)
-      list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
+      this->list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
   }
   closedir(dir);
   return list;
@@ -258,3 +261,4 @@ void SdMmc::update_sensors() {
 }  // namespace esphome
 
 #endif  // USE_ESP_IDF
+#endif // SDMMC_USE_SDMMC

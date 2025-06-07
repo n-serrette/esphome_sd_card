@@ -4,14 +4,14 @@ from esphome.components import text_sensor
 from esphome.const import (
     ENTITY_CATEGORY_DIAGNOSTIC,
 )
-from . import SdMmc, CONF_SD_MMC_CARD_ID
+from . import SdSpi, CONF_SD_MMC_CARD_ID
 
 DEPENDENCIES = ["sd_mmc_card"]
 
 CONF_SD_CARD_TYPE = "sd_card_type"
 
 CONFIG_SCHEMA = {
-    cv.GenerateID(CONF_SD_MMC_CARD_ID): cv.use_id(SdMmc),
+    cv.GenerateID(CONF_SD_MMC_CARD_ID): cv.use_id(SdSpi),
     cv.Optional(CONF_SD_CARD_TYPE): text_sensor.text_sensor_schema(
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC
     ),
