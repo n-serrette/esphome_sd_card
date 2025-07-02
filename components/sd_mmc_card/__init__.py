@@ -27,6 +27,8 @@ CONF_DATA1_PIN = "data1_pin"
 CONF_DATA2_PIN = "data2_pin"
 CONF_DATA3_PIN = "data3_pin"
 CONF_MODE_1BIT = "mode_1bit"
+CONF_MODE_SPI = "mode_spi"
+CONF_CS_PIN = "cs_pin"
 CONF_POWER_CTRL_PIN = "power_ctrl_pin"
 
 sd_mmc_card_component_ns = cg.esphome_ns.namespace("sd_mmc_card")
@@ -58,6 +60,11 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_DATA2_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_DATA3_PIN): pins.internal_gpio_pin_number({CONF_OUTPUT: True, CONF_INPUT: True}),
         cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
+        cv.Optional(CONF_MODE_SPI, default=False): cv.boolean,
+        cv.Optional(CONF_CS_PIN) : pins.gpio_pin_schema({
+            CONF_PULLUP: False,
+            CONF_PULLDOWN: True,
+        }),
         cv.Optional(CONF_POWER_CTRL_PIN) : pins.gpio_pin_schema({
             CONF_OUTPUT: True,
             CONF_PULLUP: False,
@@ -72,12 +79,17 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     cg.add(var.set_mode_1bit(config[CONF_MODE_1BIT]))
+    cg.add(var.set_mode_spi(config[CONF_MODE_SPI]))
+
+    if (CONF_CS_PIN in config):
+        cs_pin = await cg.gpio_pin_expression(config[CONF_CS_PIN])
+        cg.add(var.set_cs_pin(cs_pin))
 
     cg.add(var.set_clk_pin(config[CONF_CLK_PIN]))
     cg.add(var.set_cmd_pin(config[CONF_CMD_PIN]))
     cg.add(var.set_data0_pin(config[CONF_DATA0_PIN]))
 
-    if (config[CONF_MODE_1BIT] == False):
+    if (config[CONF_MODE_1BIT] == False and config[CONF_MODE_SPI] == False):
         cg.add(var.set_data1_pin(config[CONF_DATA1_PIN]))
         cg.add(var.set_data2_pin(config[CONF_DATA2_PIN]))
         cg.add(var.set_data3_pin(config[CONF_DATA3_PIN]))
