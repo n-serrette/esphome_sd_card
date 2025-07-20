@@ -4,6 +4,8 @@ A collection of ESPHome components focus on operating a SD card.
 
 To use any of these components in _your_ ESPHome device, check out the documentation for adding [external components](https://esphome.io/components/external_components#git).
 
+Minimum ESPHome version is ```2025.7.0```.
+
 ## Components
 
 ### [sd_mmc_card](components/sd_mmc_card/README.md) 
