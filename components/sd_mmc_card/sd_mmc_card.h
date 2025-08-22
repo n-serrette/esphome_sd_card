@@ -83,6 +83,8 @@ class SdMmc : public Component {
   void set_data2_pin(uint8_t);
   void set_data3_pin(uint8_t);
   void set_mode_1bit(bool);
+  void set_mode_spi(bool);
+  void set_cs_pin(GPIOPin *);
   void set_power_ctrl_pin(GPIOPin *);
 
  protected:
@@ -94,6 +96,8 @@ class SdMmc : public Component {
   uint8_t data2_pin_;
   uint8_t data3_pin_;
   bool mode_1bit_;
+  bool mode_spi_;
+  GPIOPin *cs_pin_{nullptr};
   GPIOPin *power_ctrl_pin_{nullptr};
 
 #ifdef USE_ESP_IDF

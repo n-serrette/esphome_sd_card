@@ -19,15 +19,19 @@ void SdMmc::loop() {}
 void SdMmc::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
+  ESP_LOGCONFIG(TAG, "  Mode SPI bit: %s", TRUEFALSE(this->mode_spi_));
   ESP_LOGCONFIG(TAG, "  CLK Pin: %d", this->clk_pin_);
   ESP_LOGCONFIG(TAG, "  CMD Pin: %d", this->cmd_pin_);
   ESP_LOGCONFIG(TAG, "  DATA0 Pin: %d", this->data0_pin_);
-  if (!this->mode_1bit_) {
+  if (!this->mode_1bit_ && !this->mode_spi_) {
     ESP_LOGCONFIG(TAG, "  DATA1 Pin: %d", this->data1_pin_);
     ESP_LOGCONFIG(TAG, "  DATA2 Pin: %d", this->data2_pin_);
     ESP_LOGCONFIG(TAG, "  DATA3 Pin: %d", this->data3_pin_);
   }
 
+  if (this->mode_spi_ && this->cs_pin_ != nullptr) {
+    LOG_PIN("  CS Pin: ", this->cs_pin_);
+  }
   if (this->power_ctrl_pin_ != nullptr) {
     LOG_PIN("  Power Ctrl Pin: ", this->power_ctrl_pin_);
   }
@@ -108,7 +112,16 @@ void SdMmc::set_data2_pin(uint8_t pin) { this->data2_pin_ = pin; }
 
 void SdMmc::set_data3_pin(uint8_t pin) { this->data3_pin_ = pin; }
 
-void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
+void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = this->mode_spi_ || b; }
+
+void SdMmc::set_mode_spi(bool b) {
+  this->mode_spi_ = b;
+  if (b) {
+    this->mode_1bit_ = true;
+  }
+}
+
+void SdMmc::set_cs_pin(GPIOPin *pin) { this->cs_pin_ = pin; }
 
 void SdMmc::set_power_ctrl_pin(GPIOPin *pin) { this->power_ctrl_pin_ = pin; }
 

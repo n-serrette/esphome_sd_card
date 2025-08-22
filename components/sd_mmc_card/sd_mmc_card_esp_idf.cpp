@@ -8,6 +8,7 @@
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
+#include "driver/i2c.h"
 
 int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
 
@@ -27,33 +28,73 @@ void SdMmc::setup() {
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
       .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024};
 
-  sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-  sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+  auto ret = ESP_FAIL;
 
-  if (this->mode_1bit_) {
-    slot_config.width = 1;
-  } else {
-    slot_config.width = 4;
+  if (this->mode_spi_) {
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+
+    if (this->cs_pin_ != nullptr) {
+      ESP_LOGD(TAG, "Initializing SDSPI... CS Pin down");
+      this->cs_pin_->setup();
+      ESP_LOGD(TAG, "Done pulling down CS pin");
+    }
+
+        // Configure SPI bus for SD card configuration
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = static_cast<gpio_num_t>(this->cmd_pin_),
+        .miso_io_num = static_cast<gpio_num_t>(this->data0_pin_),
+        .sclk_io_num = static_cast<gpio_num_t>(this->clk_pin_),
+        .quadwp_io_num = -1,         // Not used
+        .quadhd_io_num = -1,         // Not used
+        .max_transfer_sz = 4000,     // Maximum transfer size
+    };
+    // Initialize SPI bus
+    ESP_LOGD(TAG, "Initializing SPI bus for SD");
+    ret = spi_bus_initialize(static_cast<spi_host_device_t>(host.slot), &bus_cfg, SDSPI_DEFAULT_DMA);
+    if (ret != ESP_OK)
+    {
+        // Failed to initialize bus
+        ESP_LOGW(TAG, "Failed to initialize bus.");
+    }
+    else {
+      sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+      slot_config.gpio_cs = GPIO_NUM_NC; // Set CS pin
+      slot_config.host_id = static_cast<spi_host_device_t>(host.slot);  // Set host ID
+
+    // Mounting filesystem
+      ESP_LOGW(TAG, "Mounting filesystem");
+      ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
+    }
   }
-
-#ifdef SOC_SDMMC_USE_GPIO_MATRIX
-  slot_config.clk = static_cast<gpio_num_t>(this->clk_pin_);
-  slot_config.cmd = static_cast<gpio_num_t>(this->cmd_pin_);
-  slot_config.d0 = static_cast<gpio_num_t>(this->data0_pin_);
-
-  if (!this->mode_1bit_) {
-    slot_config.d1 = static_cast<gpio_num_t>(this->data1_pin_);
-    slot_config.d2 = static_cast<gpio_num_t>(this->data2_pin_);
-    slot_config.d3 = static_cast<gpio_num_t>(this->data3_pin_);
+  else {
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    if (this->mode_1bit_) {
+      slot_config.width = 1;
+    } else {
+      slot_config.width = 4;
+    }
+  
+  #ifdef SOC_SDMMC_USE_GPIO_MATRIX
+    slot_config.clk = static_cast<gpio_num_t>(this->clk_pin_);
+    slot_config.cmd = static_cast<gpio_num_t>(this->cmd_pin_);
+    slot_config.d0 = static_cast<gpio_num_t>(this->data0_pin_);
+  
+    if (!this->mode_1bit_) {
+      slot_config.d1 = static_cast<gpio_num_t>(this->data1_pin_);
+      slot_config.d2 = static_cast<gpio_num_t>(this->data2_pin_);
+      slot_config.d3 = static_cast<gpio_num_t>(this->data3_pin_);
+    }
+  #endif
+  
+    // Enable internal pullups on enabled pins. The internal pullups
+    // are insufficient however, please make sure 10k external pullups are
+    // connected on the bus. This is for debug / example purpose only.
+    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+  
+    ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
   }
-#endif
-
-  // Enable internal pullups on enabled pins. The internal pullups
-  // are insufficient however, please make sure 10k external pullups are
-  // connected on the bus. This is for debug / example purpose only.
-  slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-
-  auto ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
 
   if (ret != ESP_OK) {
     if (ret == ESP_FAIL) {
@@ -64,6 +105,7 @@ void SdMmc::setup() {
     mark_failed();
     return;
   }
+  ESP_LOGW(TAG, "Filesystem Mounted");
 
 #ifdef USE_TEXT_SENSOR
   if (this->sd_card_type_text_sensor_ != nullptr)
@@ -154,13 +196,14 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
 
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
-  ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
   std::string absolut_path = build_path(path);
   DIR *dir = opendir(absolut_path.c_str());
+  ESP_LOGV(TAG, "Listing directory file info: %s, depth: %u\n", absolut_path.c_str(), depth);
   if (!dir) {
-    ESP_LOGE(TAG, "Failed to open directory: %s", strerror(errno));
+    ESP_LOGE(TAG, "Failed to open directory (%s): %s", absolut_path.c_str(), strerror(errno));
     return list;
   }
+  ESP_LOGV(TAG, "Opened directory: %s", absolut_path.c_str());
   char entry_absolut_path[FILE_PATH_MAX];
   char entry_path[FILE_PATH_MAX];
   const size_t dirpath_len = MOUNT_POINT.size();
@@ -172,6 +215,7 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
   strlcpy(entry_absolut_path, MOUNT_POINT.c_str(), sizeof(entry_absolut_path));
   struct dirent *entry;
   while ((entry = readdir(dir)) != nullptr) {
+    ESP_LOGV(TAG, "Found entry: %s (type: %d)", entry->d_name, entry->d_type);
     size_t file_size = 0;
     strlcpy(entry_path + entry_path_len, entry->d_name, sizeof(entry_path) - entry_path_len);
     strlcpy(entry_absolut_path + dirpath_len, entry_path, sizeof(entry_absolut_path) - dirpath_len);
@@ -185,9 +229,10 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
     }
     list.emplace_back(entry_path, file_size, entry->d_type == DT_DIR);
     if (entry->d_type == DT_DIR && depth)
-      list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
+      list_directory_file_info_rec(entry_path, depth - 1, list);
   }
   closedir(dir);
+  ESP_LOGV(TAG, "Returning directory entry list with %d items", list.size());
   return list;
 }
 
