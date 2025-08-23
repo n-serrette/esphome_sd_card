@@ -21,6 +21,7 @@ sd_file_server_ns = cg.esphome_ns.namespace("sd_file_server")
 SDFileServer = sd_file_server_ns.class_("SDFileServer", cg.Component)
 
 CONFIG_SCHEMA = cv.All(
+    cv.require_esphome_version(2025,7,0),
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(SDFileServer),

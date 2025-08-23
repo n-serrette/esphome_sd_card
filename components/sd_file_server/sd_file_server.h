@@ -11,11 +11,11 @@ class SDFileServer : public Component, public AsyncWebHandler {
   SDFileServer(web_server_base::WebServerBase *);
   void setup() override;
   void dump_config() override;
-  bool canHandle(AsyncWebServerRequest *request) override;
+  bool canHandle(AsyncWebServerRequest *request) const override;
   void handleRequest(AsyncWebServerRequest *request) override;
   void handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len,
                     bool final) override;
-  bool isRequestHandlerTrivial() override { return false; }
+  bool isRequestHandlerTrivial() const override { return false; }
 
   void set_url_prefix(std::string const &);
   void set_root_path(std::string const &);

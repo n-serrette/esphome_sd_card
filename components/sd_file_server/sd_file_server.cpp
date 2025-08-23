@@ -23,7 +23,7 @@ void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "  Upload Enabled : %s", TRUEFALSE(this->upload_enabled_));
 }
 
-bool SDFileServer::canHandle(AsyncWebServerRequest *request) {
+bool SDFileServer::canHandle(AsyncWebServerRequest *request) const {
   ESP_LOGD(TAG, "can handle %s %u", request->url().c_str(),
            str_startswith(std::string(request->url().c_str()), this->build_prefix()));
   return str_startswith(std::string(request->url().c_str()), this->build_prefix());
@@ -325,7 +325,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
     return;
   }
 #ifdef USE_ESP_IDF
-  auto *response = request->beginResponse_P(200, Path::mime_type(path).c_str(), file.data(), file.size());
+  auto *response = request->beginResponse(200, Path::mime_type(path).c_str(), file.data(), file.size());
 #else
   auto *response = request->beginResponseStream(Path::mime_type(path).c_str(), file.size());
   response->write(file.data(), file.size());
