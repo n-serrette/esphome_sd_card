@@ -51,16 +51,6 @@ In case of connecting in 1-bit lane also known as SPI mode you can use table bel
 
 SD MMC is only supported by ESP32 and ESP32-S3 board.
 
-### Arduino Framework
-
-This component use the SD_MMC library and share its limitations, for more detail see :
-[SD_MMC](https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC)
-
-4 bit lane does not work with arduino framework version prior to ```2.0.7```, due to an issue in the SD_MMC setPins function.
-The issue as been fix by the pull request [espressif/arduino-esp32/#7646](https://github.com/espressif/arduino-esp32/pull/7646)
-
-The recommended version by esphome is ```2.0.5```.
-
 ```yaml
 esp32:
   board: esp32dev
