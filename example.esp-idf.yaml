@@ -1,5 +1,5 @@
 esphome:
-  name: sd-card
+  name: sd-card-esp-idf
 
 esp32:
   board: esp32dev
@@ -67,7 +67,7 @@ esp32_camera:
   power_down_pin: GPIO32
   # Image settings
   name: My Camera
-  id: camera
+  id: camera1
   max_framerate: 5fps
   jpeg_quality: 10
   resolution: 1920x1080

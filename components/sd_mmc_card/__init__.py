@@ -6,7 +6,6 @@ from esphome.const import (
     CONF_DATA,
     CONF_PATH,
     CONF_CLK_PIN,
-    CONF_INPUT,
     CONF_OUTPUT,
     CONF_PULLUP,
     CONF_PULLDOWN,
@@ -48,24 +47,26 @@ def validate_raw_data(value):
         "data must either be a string wrapped in quotes or a list of bytes"
     )
 
-CONFIG_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(): cv.declare_id(SdMmc),
-        cv.Required(CONF_CLK_PIN): pins.internal_gpio_output_pin_number,
-        cv.Required(CONF_CMD_PIN): pins.internal_gpio_output_pin_number,
-        cv.Required(CONF_DATA0_PIN): pins.internal_gpio_pin_number,
-        cv.Optional(CONF_DATA1_PIN): pins.internal_gpio_pin_number,
-        cv.Optional(CONF_DATA2_PIN): pins.internal_gpio_pin_number,
-        cv.Optional(CONF_DATA3_PIN): pins.internal_gpio_pin_number,
-        cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
-        cv.Optional(CONF_POWER_CTRL_PIN) : pins.gpio_pin_schema({
-            CONF_OUTPUT: True,
-            CONF_PULLUP: False,
-            CONF_PULLDOWN: False,
-        }),
-    }
-).extend(cv.COMPONENT_SCHEMA)
-
+CONFIG_SCHEMA = cv.All(
+    cv.require_esphome_version(2025,7,0),
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.declare_id(SdMmc),
+            cv.Required(CONF_CLK_PIN): pins.internal_gpio_output_pin_number,
+            cv.Required(CONF_CMD_PIN): pins.internal_gpio_output_pin_number,
+            cv.Required(CONF_DATA0_PIN): pins.internal_gpio_pin_number,
+            cv.Optional(CONF_DATA1_PIN): pins.internal_gpio_pin_number,
+            cv.Optional(CONF_DATA2_PIN): pins.internal_gpio_pin_number,
+            cv.Optional(CONF_DATA3_PIN): pins.internal_gpio_pin_number,
+            cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
+            cv.Optional(CONF_POWER_CTRL_PIN) : pins.gpio_pin_schema({
+                CONF_OUTPUT: True,
+                CONF_PULLUP: False,
+                CONF_PULLDOWN: False,
+            }),
+        }
+    ).extend(cv.COMPONENT_SCHEMA)
+)
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

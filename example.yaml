@@ -1,11 +1,10 @@
 esphome:
-  name: sd-card
+  name: sd-card-arduino
 
 esp32:
   board: esp32dev
   framework:
     type: arduino
-    version: 2.0.17
 
 external_components:
   - source: components
@@ -66,7 +65,7 @@ esp32_camera:
   power_down_pin: GPIO32
   # Image settings
   name: My Camera
-  id: camera
+  id: camera1
   max_framerate: 5fps
   jpeg_quality: 10
   resolution: 1920x1080
