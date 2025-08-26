@@ -13,6 +13,8 @@ namespace sd_mmc_card {
 
 static const char *TAG = "sd_mmc_card_esp32_arduino";
 
+File file_object;
+
 void SdMmc::setup() {
   if (this->power_ctrl_pin_ != nullptr)
     this->power_ctrl_pin_->setup();
@@ -90,6 +92,94 @@ bool SdMmc::delete_file(const char *path) {
   }
   this->update_sensors();
   return true;
+}
+
+/**
+ * 
+ */
+file_ptr_t SdMmc::open_file(const char *path, const char* mode) {
+  // file_ptr_t fptr = NULL;
+  // if (fptr == NULL) {
+  //     ESP_LOGE(TAG, "Not enough memory");
+  //     return NULL;
+  // }
+
+  // fptr->path = new std::string(path);
+  if ( ! SD_MMC.exists(path) ) {
+    ESP_LOGE(TAG, "File %s does not exist", absolut_path->c_str());
+    // delete fptr->path;
+    // free(fptr);
+    return NULL;
+  }
+
+  file_object = SD_MMC.open(path,mode);
+  if (!file_object) {
+    ESP_LOGE(TAG, "Failed to open file: %s, mode: %s", absolut_path.c_str(), mode);
+    // delete fptr->path;
+    // free(fptr);
+    return NULL;
+  }
+  return &file_object; 
+}
+
+/**
+ * 
+ */
+void SdMmc::close_file(file_ptr_t fptr) {
+  if ( fptr != NULL ) {
+      // SD_MMC.close(fptr->file);
+      // delete fptr->path;
+      fptr->close();
+      free(fptr);
+  }
+}
+
+/**
+ *    Read data block from  file (defined by descriptor).
+ *    return  -1 if error occered
+ *            -0 end of file
+ *            >0 Redad bytes.
+ */    
+size_t SdMmc::block_read_file(file_ptr_t fptr, uint8_t *buf, size_t promise_len) 
+{
+
+  size_t read_len = fptr->read(buf,promise_len);
+  if (read_len < 0)
+  {
+      ESP_LOGE(TAG, "Failed to read file");
+      return -1;
+  }
+  ESP_LOGV(TAG, "Read %d bytes", read_len);
+  return read_len;
+}
+
+size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
+{
+    size_t len = 0;
+    ESP_LOGD(TAG, "Read File: %s", path);
+    File file = SD_MMC.open(path);
+    if (!file) {
+      ESP_LOGE(TAG, "Failed to open file for reading %s", absolut_path.c_str());
+      return -1;
+    }
+
+    while ((file.available())  &&  (len <= promise_len)) {
+        buf[len] = file.read();
+        len++;
+    }
+
+    if (file.available()) {   // Steel available after write whole buffer
+        ESP_LOGW(TAG, "Incomplate read. Actual size is gerater then %d bytes.",promise_len);
+    }
+    file.close();
+
+    if (len <= 0) {
+        ESP_LOGE(TAG, "Failed to read or file is empty. File: %s", absolut_path.c_str());
+        return -1;
+    }
+
+    ESP_LOGV(TAG, "File read complete. %d bytes.", len);
+    return len;
 }
 
 std::vector<uint8_t> SdMmc::read_file(char const *path) {

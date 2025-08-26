@@ -319,6 +319,38 @@ Example
 - lambda: return id(sd_mmc_card)->file_size("/file");
 ```
 
+### Open file 
+
+```cpp
+file_ptr_t open_file(std::string *path, const char* mode)
+file_ptr_t open_file(const char *path, const char* mode)
+```
+
+Return filehandler  file_ptr_t  for ruture file io operation
+
+  * **path**: file path
+  * **mode**: open mode `r` for read, `w` for write
+
+### Close file
+
+```cpp
+void close_file(file_ptr_t fp)
+```
+Close file 
+
+###  Block Read File
+
+```cpp
+size_t block_read_file(file_ptr_t fp, uint8_t *buf, size_t promise_len)
+```
+Read block of data with lrnght = promise_len or less.  
+Read data after last read reauett or from begin for te first one.
+Retrun Bytes actually read or 0 if no more data to read.
+
+  * **fp**: file handler returntd by `open_file`
+  * **buf**:  pointer for alocatet memory beffer
+  * **buf**:  beffer size mean max bytes to read
+
 ### Read File
 
 ```cpp

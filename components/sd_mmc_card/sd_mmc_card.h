@@ -12,6 +12,8 @@
 
 #ifdef USE_ESP_IDF
 #include "sdmmc_cmd.h"
+#else 
+#include "SD_MMC.h"
 #endif
 
 namespace esphome {
@@ -28,6 +30,20 @@ struct FileSizeSensor {
   FileSizeSensor(sensor::Sensor *, std::string const &path);
 };
 #endif
+
+// struct FilePtr
+// {
+    // std::string *path;
+#if defined(USE_ESP_IDF)
+typedef FILE* file_ptr_t;
+    // FILE *file;
+#elif defined(USE_ESP32_FRAMEWORK_ARDUINO)
+typedef fs::File* file_ptr_t;
+    // fs::File file;
+#else
+#error "Unknown ploatfom"
+#endif
+// };
 
 struct FileInfo {
   std::string path;
@@ -62,8 +78,15 @@ class SdMmc : public Component {
   bool delete_file(std::string const &path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
+  file_ptr_t open_file(std::string const &path, const char *mode);
+  file_ptr_t open_file(const char *path, const char* mode);
+  void close_file(file_ptr_t fl);
+  size_t block_read_file(file_ptr_t fl, uint8_t *buf, size_t promise_len);
+  size_t read_file(std::string const &path, uint8_t *buf, size_t promise_len);         
+  size_t read_file(const char *path, uint8_t *buf, size_t promise_len);
   std::vector<uint8_t> read_file(char const *path);
   std::vector<uint8_t> read_file(std::string const &path);
+  
   bool is_directory(const char *path);
   bool is_directory(std::string const &path);
   std::vector<std::string> list_directory(const char *path, uint8_t depth);

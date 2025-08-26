@@ -127,6 +127,74 @@ bool SdMmc::delete_file(const char *path) {
   this->update_sensors();
   return true;
 }
+/**
+   *   Open file on mounted sd card.   
+   *   Return  structure *FilePtr (
+   *         parh - the full file path
+   *         *file - file secriptor
+   *    )
+   */
+file_ptr_t SdMmc::open_file(const char *path, const char* mode) {
+  ESP_LOGD(TAG,"Opening File full path: %s, mode %s",path,mode);
+  file_ptr_t fp = fopen(path, mode);
+  
+  if (fp == NULL)
+  {
+      ESP_LOGE(TAG, "Cannot open file. %s",strerror(errno));
+      return NULL;
+  }
+  return fp;
+}
+
+void SdMmc::close_file(file_ptr_t fp) {
+  if ( fp != NULL ) {
+      fclose(fp);
+  }
+}
+
+/**
+ *    Read data block from  file (defined by descriptor).
+ *    return  -1 if error occered
+ *            -0 end of file
+ *            >0 Redad bytes.
+ */    
+size_t SdMmc::block_read_file(file_ptr_t fp, uint8_t *buf, size_t promise_len) 
+{
+  size_t len = fread((void *)buf, 1, promise_len, fp);
+  if (len < 0)
+  {
+      ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+      return -1;
+  }
+  ESP_LOGV(TAG, "Read %d bytes", len);
+  return len;
+}
+
+size_t SdMmc::read_file(const char *path, uint8_t *buf, size_t promise_len)
+{
+    ESP_LOGD(TAG, "Open file: %s", path);
+
+    std::string absolut_path = build_path(path);
+    FILE *file = nullptr;
+    file = fopen(absolut_path.c_str(), "rb");
+    if (file == nullptr)
+    {
+        ESP_LOGE(TAG, "Failed to open file for reading");
+        return -1;
+    }
+
+    size_t len = fread((void*)buf, 1, promise_len, file);
+    fclose(file);
+    if (len < 0)
+    {
+        ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
+        return -1;
+    }
+
+    ESP_LOGD(TAG, "File read complete. %d", len);
+    return len;
+}
+
 
 std::vector<uint8_t> SdMmc::read_file(char const *path) {
   ESP_LOGV(TAG, "Read File: %s", path);
