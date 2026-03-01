@@ -4,6 +4,11 @@
 #include "esphome/components/network/util.h"
 #include "esphome/core/helpers.h"
 
+// ESP-IDF doesn't support the F() macro, so we define it as a passthrough if it's not defined
+#ifndef F
+#define F(str) (str)
+#endif
+
 namespace esphome {
 namespace sd_file_server {
 
@@ -15,7 +20,7 @@ void SDFileServer::setup() { this->base_->add_handler(this); }
 
 void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "SD File Server:");
-  ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address().c_str(), this->base_->get_port());
+  ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address(), this->base_->get_port());
   ESP_LOGCONFIG(TAG, "  Url Prefix: %s", this->url_prefix_.c_str());
   ESP_LOGCONFIG(TAG, "  Root Path: %s", this->root_path_.c_str());
   ESP_LOGCONFIG(TAG, "  Deletation Enabled: %s", TRUEFALSE(this->deletion_enabled_));
@@ -43,7 +48,7 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
   }
 }
 
-void SDFileServer::handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data,
+void SDFileServer::handleUpload(AsyncWebServerRequest *request, const std::string &filename, size_t index, uint8_t *data,
                                 size_t len, bool final) {
   if (!this->upload_enabled_) {
     request->send(401, "application/json", "{ \"error\": \"file upload is disabled\" }");
