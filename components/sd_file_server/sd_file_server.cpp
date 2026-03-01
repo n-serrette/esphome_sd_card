@@ -150,10 +150,10 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
   AsyncResponseStream *response = request->beginResponseStream("text/html");
   response->print(F(R"(
   <!DOCTYPE html>
-  <html lang=\"en\">
+  <html lang="en">
   <head>
     <meta charset=UTF-8>
-    <meta name=viewport content=\"width=device-width, initial-scale=1,user-scalable=no\">
+    <meta name=viewport content="width=device-width, initial-scale=1,user-scalable=no">
     <title>SD Card Files</title>
     <style>
     body {
