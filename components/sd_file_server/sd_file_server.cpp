@@ -41,7 +41,8 @@ void SDFileServer::handleRequest(AsyncWebServerRequest *request) {
       this->handle_get(request);
       return;
     }
-    if (request->method() == HTTP_DELETE) {
+    if (request->method() == HTTP_POST) {
+      ESP_LOGD(TAG, "handling POST request");
       this->handle_delete(request);
       return;
     }
@@ -94,6 +95,7 @@ void SDFileServer::handle_get(AsyncWebServerRequest *request) const {
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
 
+  ESP_LOGV(TAG, "handling GET request for %s", path.c_str());
   if (!this->sd_mmc_card_->is_directory(path)) {
     handle_download(request, path);
     return;
@@ -302,7 +304,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest *request, std::string cons
 
   response->print(F("</tbody></table>"
                     "<script>"
-                    "function delete_file(path) {fetch(path, {method: \"DELETE\"});}"
+                    "function delete_file(path) {fetch(path, {method: \"POST\"});}"
                     "function download_file(path, filename) {"
                     "fetch(path).then(response => response.blob())"
                     ".then(blob => {"
@@ -341,19 +343,24 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request, std::string c
 
 void SDFileServer::handle_delete(AsyncWebServerRequest *request) {
   if (!this->deletion_enabled_) {
+    ESP_LOGD(TAG, "file deletion is disabled");
     request->send(401, "application/json", "{ \"error\": \"file deletion is disabled\" }");
     return;
   }
   std::string extracted = this->extract_path_from_url(std::string(request->url().c_str()));
   std::string path = this->build_absolute_path(extracted);
+  ESP_LOGV(TAG, "deleting file %s", path.c_str());
   if (this->sd_mmc_card_->is_directory(path)) {
+    ESP_LOGD(TAG, "cannot delete a directory");
     request->send(401, "application/json", "{ \"error\": \"cannot delete a directory\" }");
     return;
   }
   if (this->sd_mmc_card_->delete_file(path)) {
+    ESP_LOGD(TAG, "file deleted successfully");
     request->send(204, "application/json", "{}");
     return;
   }
+  ESP_LOGD(TAG, "failed to delete file");
   request->send(401, "application/json", "{ \"error\": \"failed to delete file\" }");
 }
 
