@@ -26,6 +26,7 @@ CONF_DATA1_PIN = "data1_pin"
 CONF_DATA2_PIN = "data2_pin"
 CONF_DATA3_PIN = "data3_pin"
 CONF_MODE_1BIT = "mode_1bit"
+CONF_FORMAT_IF_MOUNT_FAILED = "format_if_mount_failed"
 CONF_POWER_CTRL_PIN = "power_ctrl_pin"
 
 sd_mmc_card_component_ns = cg.esphome_ns.namespace("sd_mmc_card")
@@ -59,6 +60,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_DATA2_PIN): pins.internal_gpio_pin_number,
             cv.Optional(CONF_DATA3_PIN): pins.internal_gpio_pin_number,
             cv.Optional(CONF_MODE_1BIT, default=False): cv.boolean,
+            cv.Optional(CONF_FORMAT_IF_MOUNT_FAILED, default=False): cv.boolean,
             cv.Optional(CONF_POWER_CTRL_PIN) : pins.gpio_pin_schema({
                 CONF_OUTPUT: True,
                 CONF_PULLUP: False,
@@ -73,6 +75,7 @@ async def to_code(config):
     await cg.register_component(var, config)
 
     cg.add(var.set_mode_1bit(config[CONF_MODE_1BIT]))
+    cg.add(var.set_format_if_mount_failed(config[CONF_FORMAT_IF_MOUNT_FAILED]))
 
     cg.add(var.set_clk_pin(config[CONF_CLK_PIN]))
     cg.add(var.set_cmd_pin(config[CONF_CMD_PIN]))

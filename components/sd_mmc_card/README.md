@@ -19,6 +19,7 @@ SD MMC cards components for esphome.
 sd_mmc_card:
   id: sd_mmc_card
   mode_1bit: false
+  format_if_mount_failed: false
   clk_pin: GPIO14
   cmd_pin: GPIO15
   data0_pin: GPIO2
@@ -28,6 +29,7 @@ sd_mmc_card:
 ```
 
 * **mode_1bit** (Optional, bool): specify wether to use 1 or 4 bit lane
+* **format_if_mount_failed** (Optional, bool): specify if we should format SD card if we can't mount it, you could LOST your data
 * **clk_pin** : (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): clock pin
 * **cmd_pin** : (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): command pin
 * **data0_pin**: (Required, [Pin](https://esphome.io/guides/configuration-types#pin)): data 0 pin
@@ -82,6 +84,7 @@ esp cam configuration:
 sd_mmc_card:
   id: sd_mmc_card
   mode_1bit: false
+  format_if_mount_failed: false
   clk_pin: GPIO14
   cmd_pin: GPIO15
   data0_pin: GPIO2

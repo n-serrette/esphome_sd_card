@@ -27,7 +27,7 @@ void SdMmc::setup() {
     return;
   }
 
-  bool beginResult = this->mode_1bit_ ? SD_MMC.begin("/sdcard", this->mode_1bit_) : SD_MMC.begin();
+  bool beginResult = this->mode_1bit_ ? SD_MMC.begin("/sdcard", this->mode_1bit_, this->format_if_mount_failed_) : SD_MMC.begin();
   if (!beginResult) {
     this->init_error_ = ErrorCode::ERR_MOUNT;
     this->mark_failed();

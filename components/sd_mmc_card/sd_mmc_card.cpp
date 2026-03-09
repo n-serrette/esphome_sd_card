@@ -18,6 +18,7 @@ void SdMmc::loop() {}
 
 void SdMmc::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
+  ESP_LOGCONFIG(TAG, "  Format if mount failed: %s", TRUEFALSE(this->format_if_mount_failed_));
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
   ESP_LOGCONFIG(TAG, "  CLK Pin: %d", this->clk_pin_);
   ESP_LOGCONFIG(TAG, "  CMD Pin: %d", this->cmd_pin_);
@@ -109,6 +110,8 @@ void SdMmc::set_data2_pin(uint8_t pin) { this->data2_pin_ = pin; }
 void SdMmc::set_data3_pin(uint8_t pin) { this->data3_pin_ = pin; }
 
 void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
+
+void SdMmc::set_format_if_mount_failed(bool b) { this->format_if_mount_failed_ = b; }
 
 void SdMmc::set_power_ctrl_pin(GPIOPin *pin) { this->power_ctrl_pin_ = pin; }
 
