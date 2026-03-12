@@ -10,8 +10,6 @@ esp32:
       disable_vfs_support_termios: false
       disable_vfs_support_select: false
       disable_vfs_support_dir: false
-    sdkconfig_options:
-      CONFIG_FATFS_LFN_STACK: "y"
 
 external_components:
   - source: components
