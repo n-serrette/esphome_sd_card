@@ -26,7 +26,7 @@ logger:
 
 sd_mmc_card:
   id: sd_card
-  # The SD card is connected in SPI mode, so set the 1-bit mode to true and connect the pins accordingly.
+  # The SD card is connected in the 1-bit mode and connect the pins accordingly.
   mode_1bit: true
   format_if_mount_failed: true
   clk_pin: GPIO12
