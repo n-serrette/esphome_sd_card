@@ -29,14 +29,10 @@ sd_mmc_card:
   # The SD card is connected in SPI mode, so set the 1-bit mode to true and connect the pins accordingly.
   mode_1bit: true
   format_if_mount_failed: true
-  clk_pin:
-    number: 12
-  cmd_pin:
-    number: 11
-  data0_pin:
-    number: 13
-  data3_pin:
-    number: 10
+  clk_pin: GPIO12
+  cmd_pin: GPIO11
+  data0_pin: GPIO13
+  data3_pin: GPIO10
 
 button:
   - platform: template

@@ -25,14 +25,10 @@ sd_mmc_card:
   id: sd_card
   mode_1bit: true
   format_if_mount_failed: true
-  clk_pin:
-    number: 12
-  cmd_pin:
-    number: 11
-  data0_pin:
-    number: 13
-  data3_pin:
-    number: 10
+  clk_pin: GPIO12
+  cmd_pin: GPIO11
+  data0_pin: GPIO13
+  data3_pin: GPIO10
 
 button:
   - platform: template
