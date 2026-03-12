@@ -59,9 +59,19 @@ esp32:
   framework:
     type: arduino
     version: latest
+    advanced:
+      disable_vfs_support_termios: false
+      disable_vfs_support_select: false
+      disable_vfs_support_dir: false
 ```
 
+### ESPHome
+
+We shoudld disable VFS and LWIP memory saving options to support operations with files. See the [See ESPHome Advanced Configuration](https://esphome.io/components/esp32/#advanced-configuration) for more details.
+
 ### ESP-IDF Framework
+
+ESPHome excludes certain built-in IDF components by default to reduce compile time. We should include ```["fatfs", "spiffs"]``` components. [See Built-in IDF Component Inclusion in ESPHome](https://esphome.io/components/esp32/#advanced-configuration)
 
 By default long file name are not enabled, to change this behaviour ```CONFIG_FATFS_LFN_STACK``` or ```CONFIG_FATFS_LFN_HEAP``` should be set in the framework configuration. See the [Espressif documentation](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/kconfig.html#config-fatfs-long-filenames) for more detail.
 
@@ -70,6 +80,11 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
+    advanced:
+      include_builtin_idf_components: ["fatfs", "spiffs"]
+      disable_vfs_support_termios: false
+      disable_vfs_support_select: false
+      disable_vfs_support_dir: false
     sdkconfig_options:
       CONFIG_FATFS_LFN_STACK: "y"
 ```
@@ -103,6 +118,19 @@ sd_mmc_card:
   cmd_pin: GPIO15
   data0_pin: GPIO2
   power_ctrl_pin: GPIO43
+```
+
+### ESP32-S3 N16R8 Type-C Development Board
+
+```yml
+sd_mmc_card:
+  # The SD card module is connected in the 1-bit mode and connected the pins accordingly.
+  mode_1bit: true
+  format_if_mount_failed: true
+  clk_pin: GPIO12   # SCK
+  cmd_pin: GPIO11   # MOSI
+  data0_pin: GPIO13 # MISO
+  data3_pin: GPIO10 # CS
 ```
 
 ## Actions
