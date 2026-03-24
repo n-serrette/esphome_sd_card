@@ -5,10 +5,11 @@ SD MMC cards components for esphome.
 * [Config](#config)
   * [Notes](#notes)
     * [Arduino Framework](#arduino-framework)
-    * [ESP-IDF Framework](#esp-idf-framework) 
+    * [ESP-IDF Framework](#esp-idf-framework)
   * [Devices Examples](#devices-examples)
   * [Actions](#actions)
   * [Sensors](#sensors)
+  * [Text Sensors](#text-sensors)
   * [Others](#others)
   * [Helpers](#helpers)
 
@@ -195,6 +196,15 @@ sd_mmc_card.remove_directory:
     path: "/test"
 ```
 
+### Format card *(ESP-IDF only)*
+
+Format the SD card. **All data on the card will be erased.**
+
+```yaml
+sd_mmc_card.format_card:
+    id: sd_mmc_card
+```
+
 ## Sensors
 
 ### Used space
@@ -236,6 +246,21 @@ Free capacity of the sd card
 
 * All the [sensor](https://esphome.io/components/sensor/) options
 
+### Frequency *(ESP-IDF only)*
+
+```yaml
+sensor:
+  - platform: sd_mmc_card
+    type: frequency
+    name: "SD Frequency"
+    unit_of_measurement: kHz
+    accuracy_decimals: 0
+```
+
+SD/MMC bus frequency in kHz as negotiated at mount time.
+
+* All the [sensor](https://esphome.io/components/sensor/) options
+
 ### File size
 
 ```yaml
@@ -264,6 +289,19 @@ sd card type (MMC, SDSC, ...)
 
 * All the [text sensor](https://esphome.io/components/text_sensor/) options
 
+### Filesystem type *(ESP-IDF only)*
+
+```yaml
+text_sensor:
+  - platform: sd_mmc_card
+    fs_type:
+      name: "SD Filesystem"
+```
+
+FAT filesystem type string: `FAT12`, `FAT16`, `FAT32`, `exFAT`, or `UNKNOWN`. Published once at boot.
+
+* All the [text sensor](https://esphome.io/components/text_sensor/) options
+
 ## Others
 
 ### List Directory
@@ -276,13 +314,7 @@ std::vector<std::string> list_directory(std::string path, uint8_t depth);
 * **path** : root directory
 * **depth**: max depth 
 
-Example
-
-```yaml
-- lambda: |
-  for (auto const & file : id(esp_camera_sd_card)->list_directory("/", 1))
-    ESP_LOGE("   ", "File: %s\n", file.c_str());
-```
+> **Warning:** `list_directory()` has a known crash bug. Use `list_directory_file_info()` instead (see below).
 
 ### List Directory File Info
 

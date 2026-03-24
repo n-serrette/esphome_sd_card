@@ -64,8 +64,14 @@ void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, cons
 
 bool SdMmc::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
+  // FIX: SD_MMC.mkdir returns false both for real errors and when the directory
+  // already exists. Check existence first so we don't log a false error.
+  if (SD_MMC.exists(path)) {
+    ESP_LOGI(TAG, "Directory already exists: %s", path);
+    return true;
+  }
   if (!SD_MMC.mkdir(path)) {
-    ESP_LOGE(TAG, "Failed to create directory");
+    ESP_LOGE(TAG, "Failed to create directory: %s", path);
     return false;
   }
   this->update_sensors();
@@ -75,7 +81,7 @@ bool SdMmc::create_directory(const char *path) {
 bool SdMmc::remove_directory(const char *path) {
   ESP_LOGV(TAG, "Remove directory: %s", path);
   if (!SD_MMC.rmdir(path)) {
-    ESP_LOGE(TAG, "Failed to remove directory");
+    ESP_LOGE(TAG, "Failed to remove directory: %s", path);
     return false;
   }
   this->update_sensors();
@@ -85,7 +91,7 @@ bool SdMmc::remove_directory(const char *path) {
 bool SdMmc::delete_file(const char *path) {
   ESP_LOGV(TAG, "Delete File: %s", path);
   if (!SD_MMC.remove(path)) {
-    ESP_LOGE(TAG, "failed to remove file");
+    ESP_LOGE(TAG, "failed to remove file: %s", path);
     return false;
   }
   this->update_sensors();

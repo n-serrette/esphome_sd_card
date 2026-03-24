@@ -42,9 +42,13 @@ class SdMmc : public Component {
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
   SUB_SENSOR(free_space)
+  // SD/MMC bus frequency in kHz (ESP-IDF only; Arduino does not expose this)
+  SUB_SENSOR(frequency)
 #endif
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)
+  // filesystem type string (FAT12 / FAT16 / FAT32 / exFAT — ESP-IDF only)
+  SUB_TEXT_SENSOR(fs_type)
 #endif
  public:
   enum ErrorCode {
@@ -62,6 +66,7 @@ class SdMmc : public Component {
   bool delete_file(std::string const &path);
   bool create_directory(const char *path);
   bool remove_directory(const char *path);
+  bool format_card();
   std::vector<uint8_t> read_file(char const *path);
   std::vector<uint8_t> read_file(std::string const &path);
   bool is_directory(const char *path);
@@ -110,6 +115,7 @@ class SdMmc : public Component {
 #endif
 #ifdef USE_ESP_IDF
   std::string sd_card_type() const;
+  std::string fs_type() const;
 #endif
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
   static std::string error_code_to_string(ErrorCode);
@@ -184,6 +190,16 @@ template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
     auto path = this->path_.value(x...);
     this->parent_->delete_file(path.c_str());
   }
+
+ protected:
+  SdMmc *parent_;
+};
+
+template<typename... Ts> class SdMmcFormatAction : public Action<Ts...> {
+ public:
+  SdMmcFormatAction(SdMmc *parent) : parent_(parent) {}
+
+  void play(const Ts &...x) override { this->parent_->format_card(); }
 
  protected:
   SdMmc *parent_;

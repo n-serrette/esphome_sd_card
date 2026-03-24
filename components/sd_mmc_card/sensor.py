@@ -19,9 +19,10 @@ CONF_USED_SPACE = "used_space"
 CONF_TOTAL_SPACE = "total_space"
 CONF_FREE_SPACE = "free_space"
 CONF_FILE_SIZE = "file_size"
+CONF_FREQUENCY = "frequency"  # SD/MMC bus frequency in kHz (ESP-IDF only)
 
 TYPES = [CONF_USED_SPACE, CONF_TOTAL_SPACE, CONF_USED_SPACE, CONF_FREE_SPACE]
-SIMPLE_TYPES = [CONF_USED_SPACE, CONF_TOTAL_SPACE, CONF_FREE_SPACE]
+SIMPLE_TYPES = [CONF_USED_SPACE, CONF_TOTAL_SPACE, CONF_FREE_SPACE, CONF_FREQUENCY]
 
 BASE_CONFIG_SCHEMA = sensor.sensor_schema(
     unit_of_measurement=UNIT_BYTES,
@@ -36,14 +37,15 @@ BASE_CONFIG_SCHEMA = sensor.sensor_schema(
 
 CONFIG_SCHEMA = cv.typed_schema(
     {
-        CONF_TOTAL_SPACE : BASE_CONFIG_SCHEMA,
-        CONF_USED_SPACE : BASE_CONFIG_SCHEMA,
+        CONF_TOTAL_SPACE: BASE_CONFIG_SCHEMA,
+        CONF_USED_SPACE: BASE_CONFIG_SCHEMA,
         CONF_FREE_SPACE: BASE_CONFIG_SCHEMA,
+        CONF_FREQUENCY: BASE_CONFIG_SCHEMA,
         CONF_FILE_SIZE: BASE_CONFIG_SCHEMA.extend(
             {
                 cv.Required(CONF_PATH): cv.templatable(cv.string_strict),
             }
-        )
+        ),
     },
     lower=True,
 )

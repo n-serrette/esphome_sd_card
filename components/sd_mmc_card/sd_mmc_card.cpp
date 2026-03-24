@@ -37,6 +37,7 @@ void SdMmc::dump_config() {
   LOG_SENSOR("  ", "Used space", this->used_space_sensor_);
   LOG_SENSOR("  ", "Total space", this->total_space_sensor_);
   LOG_SENSOR("  ", "Free space", this->free_space_sensor_);
+  LOG_SENSOR("  ", "Frequency", this->frequency_sensor_);
   for (auto &sensor : this->file_size_sensors_) {
     if (sensor.sensor != nullptr)
       LOG_SENSOR("  ", "File size", sensor.sensor);
@@ -44,6 +45,7 @@ void SdMmc::dump_config() {
 #endif
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
+  LOG_TEXT_SENSOR("  ", "Filesystem Type", this->fs_type_text_sensor_);
 #endif
 
   if (this->is_failed()) {
@@ -65,7 +67,10 @@ void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
 std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   std::vector<FileInfo> infos = list_directory_file_info(path, depth);
-  std::transform(infos.cbegin(), infos.cend(), list.begin(), [](FileInfo const &info) { return info.path; });
+  // FIX: original used list.begin() on an empty vector — undefined behaviour
+  // that caused a LoadProhibited crash. std::back_inserter grows the vector.
+  std::transform(infos.cbegin(), infos.cend(), std::back_inserter(list),
+                 [](FileInfo const &info) { return info.path; });
   return list;
 }
 

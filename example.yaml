@@ -36,7 +36,7 @@ button:
     on_press:
       then:
         - sd_mmc_card.write_file:
-            path: "/test.txt" 
+            path: "/test.txt"
             data: !lambda |
               std::string str("content");
               return std::vector<uint8_t>(str.begin(), str.end());
@@ -56,7 +56,7 @@ button:
     on_press:
       then:
         - sd_mmc_card.write_file:
-            path: "/test.txt" 
+            path: "/test.txt"
             data: !lambda |
               std::string str("content");
               return std::vector<uint8_t>(str.begin(), str.end());
@@ -64,6 +64,8 @@ button:
         - sd_mmc_card.create_directory:
             path: "/test_dir"
         - logger.log: "directory created"
+
+  # Note: sd_mmc_card.format_card is ESP-IDF only and not available here.
 
 sensor:
   - platform: sd_mmc_card
@@ -87,6 +89,8 @@ sensor:
     filters:
       - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::GigaByte);
 
+  # Note: frequency sensor is ESP-IDF only and not available here.
+
   - platform: sd_mmc_card
     type: file_size
     name: "text.txt size"
@@ -99,6 +103,7 @@ text_sensor:
   - platform: sd_mmc_card
     sd_card_type:
       name: "SD card type"
+  # Note: fs_type text sensor is ESP-IDF only and not available here.
 
 web_server:
 

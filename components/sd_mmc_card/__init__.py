@@ -38,6 +38,8 @@ SdMmcAppendFileAction = sd_mmc_card_component_ns.class_("SdMmcAppendFileAction",
 SdMmcCreateDirectoryAction = sd_mmc_card_component_ns.class_("SdMmcCreateDirectoryAction", automation.Action)
 SdMmcRemoveDirectoryAction = sd_mmc_card_component_ns.class_("SdMmcRemoveDirectoryAction", automation.Action)
 SdMmcDeleteFileAction = sd_mmc_card_component_ns.class_("SdMmcDeleteFileAction", automation.Action)
+SdMmcFormatAction = sd_mmc_card_component_ns.class_("SdMmcFormatAction", automation.Action)
+
 
 def validate_raw_data(value):
     if isinstance(value, str):
@@ -178,4 +180,13 @@ async def sd_mmc_delete_file_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg, parent)
     path_ = await cg.templatable(config[CONF_PATH], args, cg.std_string)
     cg.add(var.set_path(path_))
+    return var
+
+
+@automation.register_action(
+    "sd_mmc_card.format_card", SdMmcFormatAction, cv.Schema({cv.GenerateID(): cv.use_id(SdMmc)})
+)
+async def sd_mmc_format_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, parent)
     return var

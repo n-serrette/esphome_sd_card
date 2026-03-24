@@ -61,6 +61,8 @@ esp32:
       disable_vfs_support_dir: false
 ```
 
+> **Note:** The `frequency` sensor, `fs_type` text sensor, and `sd_mmc_card.format_card` action are **ESP-IDF only** and are not available with the Arduino framework.
+
 #### ESP-IDF Framework
 
 ESPHome excludes certain built-in IDF components by default to reduce compile time. We should include ```["fatfs", "spiffs"]``` components. [See Built-in IDF Component Inclusion in ESPHome](https://esphome.io/components/esp32/#advanced-configuration)

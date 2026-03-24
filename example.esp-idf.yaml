@@ -40,7 +40,7 @@ button:
     on_press:
       then:
         - sd_mmc_card.write_file:
-            path: "/test.txt" 
+            path: "/test.txt"
             data: !lambda |
               std::string str("content");
               return std::vector<uint8_t>(str.begin(), str.end());
@@ -60,7 +60,7 @@ button:
     on_press:
       then:
         - sd_mmc_card.write_file:
-            path: "/test.txt" 
+            path: "/test.txt"
             data: !lambda |
               std::string str("content");
               return std::vector<uint8_t>(str.begin(), str.end());
@@ -68,6 +68,14 @@ button:
         - sd_mmc_card.create_directory:
             path: "/test_dir"
         - logger.log: "directory created"
+
+  # format the card - all data will be erased (ESP-IDF only)
+  - platform: template
+    name: "SD Format Card"
+    on_press:
+      then:
+        - sd_mmc_card.format_card:
+            id: sd_card
 
 sensor:
   - platform: sd_mmc_card
@@ -91,6 +99,13 @@ sensor:
     filters:
       - lambda: return sd_mmc_card::convertBytes(x, sd_mmc_card::MemoryUnits::GigaByte);
 
+  # SD/MMC bus frequency in kHz (ESP-IDF only)
+  - platform: sd_mmc_card
+    type: frequency
+    name: "SD Frequency"
+    unit_of_measurement: kHz
+    accuracy_decimals: 0
+
   - platform: sd_mmc_card
     type: file_size
     name: "text.txt size"
@@ -103,6 +118,9 @@ text_sensor:
   - platform: sd_mmc_card
     sd_card_type:
       name: "SD card type"
+    # FAT filesystem type - FAT12/FAT16/FAT32/exFAT (ESP-IDF only)
+    fs_type:
+      name: "SD Filesystem"
 
 web_server:
 
