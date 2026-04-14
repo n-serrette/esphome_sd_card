@@ -1,14 +1,172 @@
+substitutions:
+  device_name: blackbox
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+
+esphome:
+  name: ${device_name}
+  friendly_name: "Black Box"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FATFS_LFN_HEAP: "y"   # heap-allocate LFN buffer, keeps task stacks safe
+      CONFIG_FATFS_LFN: "2"        # 2 = heap allocation mode (1 = stack)
+
 external_components:
   - source: github://andrewbackway/esphome-sd_card_web
+    components: [sd_mmc, sd_logger, webserver_sd]
 
+logger:
+  level: DEBUG
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  ap:
+    ssid: "${device_name}-fallback"
+    password: !secret ap_password
+
+# ── SNTP time (required by sd_logger) ─────────────────────────────────────────
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Australia/Melbourne"
+    servers:
+      - pool.ntp.org
+
+# ── SD card (4-bit SDMMC, GPIO-matrix on S3) ──────────────────────────────────
+sd_mmc:
+  id: sd_card
+  clk_pin: 36
+  cmd_pin: 35
+  data0_pin: 37
+  data1_pin: 38
+  data2_pin: 33
+  data3_pin: 34
+  mode_1bit: false
+
+# ── Logging hub ───────────────────────────────────────────────────────────────
 sd_logger:
-  upload_url: "https://example.com/upload"
-  bearer_token: "Bearer MYTOKEN"
-  log_path: "/logs"
-  upload_interval: 5min
+  id: logger
+  sd_mmc_id: sd_card
+  time_id: sntp_time
+  queue_size: 50       # max packets buffered before drops
+  task_priority: 1     # FreeRTOS priority (0 = lowest)
+  # Cloud upload — remove these keys to disable the upload task entirely
+  upload_url: "https://example.com/api/upload"
+  bearer_token: !secret upload_token
+  ping_url: "https://example.com/ping"
+  ping_interval: 30s
+  ping_timeout: 5s
   backoff_initial: 30s
-  backoff_max: 1h
-  gzip: true
-  sensors:
-    - temp_outdoor
-    - hum_outdoor
+  backoff_max: 15min
+  sync_online:
+    name: "Cloud Sync Online"
+  sync_sending_backlog:
+    name: "Cloud Sync Backlog"
+
+# ── Sensors ───────────────────────────────────────────────────────────────────
+sensor:
+  # Simulated engine RPM — replace with your real sensor (e.g. pulse_counter)
+  - platform: template
+    id: engine_rpm
+    name: "Engine RPM"
+    unit_of_measurement: "rpm"
+    accuracy_decimals: 0
+    update_interval: 500ms
+    lambda: "return (float)(millis() % 6000);"
+
+  # Simulated vehicle speed — replace with your real sensor
+  - platform: template
+    id: vehicle_speed
+    name: "Vehicle Speed"
+    unit_of_measurement: "km/h"
+    accuracy_decimals: 1
+    update_interval: 500ms
+    lambda: "return (float)((millis() / 1000) % 120);"
+
+  # Heap monitor — useful for T4/T13 non-blocking tests
+  - platform: template
+    name: "Free Heap"
+    unit_of_measurement: "B"
+    accuracy_decimals: 0
+    update_interval: 5s
+    lambda: "return (float)esp_get_free_heap_size();"
+
+  # SD card used space
+  - platform: sd_mmc
+    sd_mmc_id: sd_card
+    used_space:
+      name: "SD Used"
+      unit_of_measurement: "MB"
+
+  # ── Log engine RPM to its own daily CSV ─────────────────────────────────────
+  - platform: sd_logger
+    sd_logger_id: logger
+    sensor_id: engine_rpm
+    file_prefix: "rpm"
+    header: "timestamp,rpm"
+    format: "%.0f"
+    log_interval: 1s
+    rotation: daily
+    force_write_on_change: false
+
+  # ── Log vehicle speed — size rotation, 10 MB per file ───────────────────────
+  - platform: sd_logger
+    sd_logger_id: logger
+    sensor_id: vehicle_speed
+    file_prefix: "speed"
+    header: "timestamp,speed_kmh"
+    format: "%.1f"
+    log_interval: 1s
+    rotation: size
+    max_file_size: 10485760   # 10 MB
+    force_write_on_change: true
+
+text_sensor:
+  # Simulated gear position — replace with your real CAN/OBD sensor
+  - platform: template
+    id: gear_pos
+    name: "Gear Position"
+    update_interval: 1s
+    lambda: |-
+      static const char* gears[] = {"P","R","N","D","3","2","L"};
+      return std::string(gears[(millis() / 5000) % 7]);
+
+  # SD card type
+  - platform: sd_mmc
+    sd_mmc_id: sd_card
+    sd_card_type:
+      name: "SD Card Type"
+
+  # ── Log gear position as text CSV ────────────────────────────────────────────
+  - platform: sd_logger
+    sd_logger_id: logger
+    sensor_id: gear_pos
+    file_prefix: "gear"
+    header: "timestamp,gear"
+    log_interval: 1s
+    rotation: daily
+    force_write_on_change: true   # log immediately on gear change
+
+binary_sensor:
+  - platform: template
+    name: "SD Card Present"
+    lambda: "return id(sd_card).is_directory(\"/\");"
+
+# ── Web file browser ──────────────────────────────────────────────────────────
+web_server:
+  port: 80
+
+webserver_sd:
+  id: file_server
+  sd_mmc_id: sd_card
+  url_prefix: "file"
+  root_path: "/"
+  enable_deletion: true
+  enable_download: true
+  enable_upload: true

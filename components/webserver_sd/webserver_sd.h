@@ -39,12 +39,11 @@ class SDFileServer : public Component, public AsyncWebHandler {
   std::string extract_path_from_url(const std::string &url) const;
   std::string build_absolute_path(std::string relative_path) const;
   void append_json_row(std::string &json, bool &first, const sd_mmc::FileInfo &info) const;
-  void append_json_row(AsyncResponseStream *response, const sd_mmc::FileInfo &info) const;
   void handle_index(AsyncWebServerRequest *request, const std::string &path) const;
   void handle_get(AsyncWebServerRequest *request) const;
   void handle_delete(AsyncWebServerRequest *request);
   void handle_download(AsyncWebServerRequest *request, const std::string &path) const;
-  void handle_download_buffered(AsyncWebServerRequest *request, const std::string &path, const std::string &mime, size_t file_size) const;
+  void handle_download_stream(AsyncWebServerRequest *request, const std::string &path, const std::string &mime, size_t file_size) const;
 };
 
 struct Path {

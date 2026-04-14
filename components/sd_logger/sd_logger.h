@@ -197,6 +197,9 @@ class SdLogger : public Component {
   // ── Binary sensors ────────────────────────────────────────────────────────────
   binary_sensor::BinarySensor *sync_online_bs_{nullptr};
   binary_sensor::BinarySensor *sync_sending_backlog_bs_{nullptr};
+
+  // ── Loop state ────────────────────────────────────────────────────────────────
+  bool callbacks_attached_{false};
 };
 
 }  // namespace sd_logger

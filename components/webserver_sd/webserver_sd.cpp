@@ -1,6 +1,7 @@
 #include "webserver_sd.h"
 
 #include <map>
+#include <memory>
 
 #include "esphome/components/network/util.h"
 #include "esphome/core/helpers.h"
@@ -42,8 +43,13 @@ void SDFileServer::handleRequest(AsyncWebServerRequest* request) {
   auto method = request->method();
   std::string url = request->url().c_str();
 
+  if (method == HTTP_DELETE) {
+    this->handle_delete(request);
+    return;
+  }
+
   if (method == HTTP_GET) {
-    // workaround for delete Detect ?delete (or &delete, delete=1, etc.)
+    // Legacy workaround: ?delete param triggers deletion via GET
     if (request->hasParam("delete")) {
       this->handle_delete(request);
       return;
@@ -74,13 +80,12 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
     return;
   }
 
-  std::string file_name(filename.c_str());
+  std::string file_path = Path::join(path, std::string(filename.c_str()));
   if (index == 0) {
-    this->sd_mmc_->write_file(Path::join(path, file_name).c_str(), data, len);
-    return;
+    this->sd_mmc_->write_file(file_path.c_str(), data, len);
+  } else {
+    this->sd_mmc_->append_file(file_path.c_str(), data, len);
   }
-
-  this->sd_mmc_->append_file(Path::join(path, file_name).c_str(), data, len);
 
   if (final) {
     auto response = request->beginResponse(201, "text/html", "upload success");
@@ -241,73 +246,58 @@ void SDFileServer::handle_index(AsyncWebServerRequest* request,
   request->send(response);
 }
 
-void SDFileServer::handle_download(AsyncWebServerRequest* request,
-                                   const std::string& path) const {
-  ESP_LOGI(TAG, "handle_download: Request for '%s'", path.c_str());
-  
+void SDFileServer::handle_download(AsyncWebServerRequest *request,
+                                   const std::string &path) const {
   if (!this->download_enabled_) {
-    ESP_LOGW(TAG, "handle_download: Download disabled, rejecting request");
-    request->send(401, "application/json",
+    request->send(403, "application/json",
                   "{ \"error\": \"file download is disabled\" }");
     return;
   }
 
   size_t file_size = this->sd_mmc_->file_size(path);
-  ESP_LOGI(TAG, "handle_download: File size check returned: %u bytes", file_size);
-  
   if (file_size == static_cast<size_t>(-1)) {
-    ESP_LOGE(TAG, "handle_download: File not found: '%s'", path.c_str());
-    request->send(404, "application/json",
-                  "{ \"error\": \"file not found\" }");
-    return;
-  }
-
-  if (file_size > 102400) { // 100KB limit
-    ESP_LOGE(TAG, "handle_download: File too large: %u bytes (max 102400)", file_size);
-    request->send(413, "application/json",
-                  "{ \"error\": \"file too large\" }");
+    request->send(404, "application/json", "{ \"error\": \"file not found\" }");
     return;
   }
 
   std::string mime = Path::mime_type(path);
-  ESP_LOGD(TAG, "handle_download: MIME type: %s", mime.c_str());
-
-  // Use buffered download for all files within limit
-  ESP_LOGI(TAG, "handle_download: Using buffered download for file (%u bytes)", file_size);
-  this->handle_download_buffered(request, path, mime, file_size);
+  this->handle_download_stream(request, path, mime, file_size);
 }
 
-void SDFileServer::handle_download_buffered(AsyncWebServerRequest* request,
-                                       const std::string& path,
-                                       const std::string& mime,
-                                       size_t file_size) const {
-  size_t heap_before = esp_get_free_heap_size();
-  ESP_LOGI(TAG, "handle_download_buffered: Starting download. File: %u bytes, Free heap: %u bytes", 
-           file_size, heap_before);
-  
-  auto file_data = this->sd_mmc_->read_file(path);
-  
-  if (file_data.size() == 0) {
-    // read_file returns empty vector on allocation failure
-    size_t heap_after = esp_get_free_heap_size();
-    ESP_LOGE(TAG, "handle_download_buffered: Read failed for '%s'. Heap before: %u, after: %u", 
-             path.c_str(), heap_before, heap_after);
-    request->send(507, "application/json",
-                  "{ \"error\": \"insufficient memory to serve file\" }");
+void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
+                                          const std::string &path,
+                                          const std::string &mime,
+                                          size_t file_size) const {
+  FILE *fp = fopen(path.c_str(), "rb");
+  if (!fp) {
+    ESP_LOGE(TAG, "handle_download_stream: fopen failed: %s", path.c_str());
+    request->send(404, "application/json", "{ \"error\": \"file not found\" }");
     return;
   }
 
-  size_t heap_after_read = esp_get_free_heap_size();
-  ESP_LOGI(TAG, "handle_download_buffered: Read successful. Size: %u bytes, Heap before: %u, after: %u, used: %d",
-           file_data.size(), heap_before, heap_after_read, (int)(heap_before - heap_after_read));
-  
-  auto* response = request->beginResponse(200, mime.c_str(), file_data.data(), file_data.size());
-  
-  ESP_LOGI(TAG, "handle_download_buffered: Sending response for '%s'", path.c_str());
+  // Wrap FILE* in shared state — destructor closes the file once the async
+  // response finishes and all shared_ptr copies are released.
+  struct FileState {
+    FILE *fp;
+    explicit FileState(FILE *f) : fp(f) {}
+    ~FileState() { if (fp) { fclose(fp); fp = nullptr; } }
+  };
+  auto state = std::make_shared<FileState>(fp);
+
+  auto *response = request->beginResponse(
+      mime.c_str(), file_size,
+      [state](uint8_t *buf, size_t max_len, size_t index) -> size_t {
+        if (!state->fp) return 0;
+        if (fseek(state->fp, static_cast<long>(index), SEEK_SET) != 0) return 0;
+        return fread(buf, 1, max_len, state->fp);
+      });
+
+  std::string fname = Path::file_name(path);
+  response->addHeader("Content-Disposition",
+                      "attachment; filename=\"" + fname + "\"");
+  ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(),
+           static_cast<unsigned>(file_size));
   request->send(response);
-  
-  // Note: Heap may not be freed immediately due to async response handling
-  ESP_LOGI(TAG, "handle_download_buffered: Response sent. Final free heap: %u", esp_get_free_heap_size());
 }
 
 void SDFileServer::handle_delete(AsyncWebServerRequest* request) {
@@ -393,10 +383,25 @@ std::vector<std::string> Path::split_path(std::string path) {
   return parts;
 }
 
-std::string Path::extension(const std::string& file) {
+std::string Path::extension(const std::string &file) {
   size_t pos = file.find_last_of('.');
   if (pos == std::string::npos) return "";
   return file.substr(pos + 1);
+}
+
+std::string Path::file_type(const std::string &file) {
+  std::string ext = extension(file);
+  if (ext.empty()) return "file";
+  std::string lower = ext;
+  std::transform(lower.begin(), lower.end(), lower.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  if (lower == "csv" || lower == "log" || lower == "txt") return "text";
+  if (lower == "jpg" || lower == "jpeg" || lower == "png" || lower == "bmp") return "image";
+  if (lower == "mp3" || lower == "wav") return "audio";
+  if (lower == "mp4" || lower == "avi" || lower == "webm") return "video";
+  if (lower == "json" || lower == "xml") return "data";
+  if (lower == "zip" || lower == "gz" || lower == "tar") return "archive";
+  return "file";
 }
 
 std::string Path::mime_type(const std::string& file) {
