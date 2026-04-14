@@ -10,7 +10,7 @@ AUTO_LOAD = ["binary_sensor"]
 
 ESP_IDF_COMPONENTS = [
     "esp_http_client",
-    "esp-tls",
+    "esp_tls",
 ]
 
 # Exported so sensor.py / text_sensor.py platform files can reference the hub.

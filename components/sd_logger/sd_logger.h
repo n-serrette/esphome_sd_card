@@ -17,10 +17,6 @@ extern "C" {
   #include "freertos/queue.h"
   #include "esp_system.h"
 }
-extern "C" {
-  #include "esp_http_client.h"
-  #include "esp_tls.h"
-}
 
 namespace esphome {
 namespace sd_logger {
@@ -144,7 +140,7 @@ class SdLogger : public Component {
 
   // ── HTTP helpers (retained; used by upload task in Phase 5) ──────────────────
   bool http_request_(const char *url,
-                     esp_http_client_method_t method,
+                     int method,
                      const char *content_type,
                      const uint8_t *body, size_t body_len,
                      uint32_t timeout_ms,

@@ -12,6 +12,8 @@
 extern "C" {
 #include "esp_heap_caps.h"
 #include "esp_timer.h"
+#include "esp_http_client.h"
+#include "esp_tls.h"
 }
 
 namespace esphome {
@@ -384,7 +386,7 @@ static void set_err_(std::string *out, const char *msg) {
 }
 
 bool SdLogger::http_request_(const char *url,
-                              esp_http_client_method_t method,
+                              int method,
                               const char *content_type,
                               const uint8_t *body, size_t body_len,
                               uint32_t timeout_ms,
