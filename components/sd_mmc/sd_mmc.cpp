@@ -147,9 +147,12 @@ void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
 
 bool SdMmc::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
-  std::string absolut_path = this->build_path(path);
-  if (mkdir(absolut_path.c_str(), 0777) < 0) {
-    ESP_LOGE(TAG, "Failed to create a new directory: %s", strerror(errno));
+  // Use FATFS f_mkdir directly — the POSIX mkdir() resolves to a stub on this
+  // toolchain/IDF combination instead of the VFS implementation.
+  std::string fatfs_path = "0:" + std::string(path);
+  FRESULT res = f_mkdir(fatfs_path.c_str());
+  if (res != FR_OK) {
+    ESP_LOGE(TAG, "Failed to create directory '%s': FATFS error %d", path, (int)res);
     return false;
   }
   this->update_sensors();
@@ -303,49 +306,43 @@ bool SdMmc::stream_file(const char *path, FileChunkCallback callback, size_t chu
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
-  std::string absolut_path = this->build_path(path);
-  DIR *dir = opendir(absolut_path.c_str());
-  if (!dir) {
-    ESP_LOGE(TAG, "Failed to open directory: %s", strerror(errno));
+  // Use FATFS API directly — opendir/readdir resolve to POSIX stubs on this
+  // toolchain/IDF combination instead of the VFS implementations.
+  // 'path' is SD-card-relative (e.g. "/" or "/subdir"); FATFS drive is "0:".
+  std::string fatfs_path = "0:" + std::string(path);
+  FF_DIR dir;
+  FRESULT res = f_opendir(&dir, fatfs_path.c_str());
+  if (res != FR_OK) {
+    ESP_LOGE(TAG, "Failed to open directory '%s': FATFS error %d", path, (int)res);
     return list;
   }
-  char entry_absolut_path[FILE_PATH_MAX];
-  char entry_path[FILE_PATH_MAX];
-  const size_t dirpath_len = MOUNT_POINT.size();
-  size_t entry_path_len = strlen(path);
-  strlcpy(entry_path, path, sizeof(entry_path));
-  strlcpy(entry_path + entry_path_len, "/", sizeof(entry_path) - entry_path_len);
-  entry_path_len = strlen(entry_path);
 
-  strlcpy(entry_absolut_path, MOUNT_POINT.c_str(), sizeof(entry_absolut_path));
-  struct dirent *entry;
-  while ((entry = readdir(dir)) != nullptr) {
-    size_t file_size = 0;
-    strlcpy(entry_path + entry_path_len, entry->d_name, sizeof(entry_path) - entry_path_len);
-    strlcpy(entry_absolut_path + dirpath_len, entry_path, sizeof(entry_absolut_path) - dirpath_len);
-    if (entry->d_type != DT_DIR) {
-      struct stat info;
-      if (stat(entry_absolut_path, &info) < 0) {
-        ESP_LOGE(TAG, "Failed to stat file: %s '%s' %s", strerror(errno), entry->d_name, entry_absolut_path);
-      } else {
-        file_size = info.st_size;
-      }
-    }
-    list.emplace_back(entry_path, file_size, entry->d_type == DT_DIR);
-    if (entry->d_type == DT_DIR && depth)
-      list_directory_file_info_rec(entry_absolut_path, depth - 1, list);
+  // Build a base path without trailing slash (except bare "/").
+  std::string base_path(path);
+  if (base_path.size() > 1 && base_path.back() == '/')
+    base_path.pop_back();
+
+  FILINFO fno;
+  while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0] != '\0') {
+    bool is_dir = (fno.fattrib & AM_DIR) != 0;
+    std::string entry_path = (base_path == "/" ? "/" : base_path + "/") + fno.fname;
+    size_t file_size = is_dir ? 0 : static_cast<size_t>(fno.fsize);
+    list.emplace_back(entry_path, file_size, is_dir);
+    if (is_dir && depth)
+      list_directory_file_info_rec(entry_path.c_str(), depth - 1, list);
   }
-  closedir(dir);
+
+  f_closedir(&dir);
   return list;
 }
 
 bool SdMmc::is_directory(const char *path) {
   std::string absolut_path = this->build_path(path);
-  DIR *dir = opendir(absolut_path.c_str());
-  if (dir) {
-    closedir(dir);
+  struct stat info;
+  if (stat(absolut_path.c_str(), &info) != 0) {
+    return false;
   }
-  return dir != nullptr;
+  return S_ISDIR(info.st_mode);
 }
 
 bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
