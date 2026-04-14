@@ -19,7 +19,14 @@ static const char *TAG = "sd_mmc";
 static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + 255;  // 255 = FAT LFN max
 static const std::string MOUNT_POINT("/sdcard");
 
-std::string SdMmc::build_path(const std::string &path) const { return MOUNT_POINT + path; }
+std::string SdMmc::build_path(const std::string &path) const {
+  // ESP-IDF FAT VFS stat() fails on paths with a trailing slash (e.g. "/sdcard/").
+  // Strip any trailing slash unless the result would be just MOUNT_POINT itself.
+  std::string full = MOUNT_POINT + path;
+  while (full.size() > MOUNT_POINT.size() && full.back() == '/')
+    full.pop_back();
+  return full;
+}
 
 #ifdef USE_SENSOR
 FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
