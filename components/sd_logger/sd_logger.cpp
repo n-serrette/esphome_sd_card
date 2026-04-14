@@ -9,13 +9,6 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 
-extern "C" {
-#include "esp_heap_caps.h"
-#include "esp_timer.h"
-#include "esp_http_client.h"
-#include "esp_tls.h"
-}
-
 namespace esphome {
 namespace sd_logger {
 

@@ -19,13 +19,6 @@ from esphome.components.esp32.const import (
 
 DEPENDENCIES = ["esp32"]
 
-ESP_IDF_COMPONENTS = [
-    "driver",
-    "fatfs",
-    "sdmmc",
-    "vfs",
-]
-
 CONF_SD_MMC_ID = "sd_mmc_id"
 CONF_CMD_PIN = "cmd_pin"
 CONF_DATA0_PIN = "data0_pin"
@@ -76,6 +69,12 @@ CONFIG_SCHEMA = cv.All(
 )
 
 async def to_code(config):
+    # ESP-IDF fatfs component headers are not in the default include path for
+    # external components.  Resolve via PlatformIO package-dir interpolation.
+    cg.add_build_flag(
+        "-I${platformio.packages_dir}/framework-espidf/components/fatfs/vfs"
+    )
+
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
