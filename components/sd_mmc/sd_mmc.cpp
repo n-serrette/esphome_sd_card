@@ -344,25 +344,34 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
 }
 
 bool SdMmc::is_directory(const char *path) {
-  std::string absolut_path = this->build_path(path);
-  struct stat info;
-  if (stat(absolut_path.c_str(), &info) != 0) {
-    return false;
-  }
-  return S_ISDIR(info.st_mode);
+  // Use FATFS API directly — stat() via VFS resolves to POSIX stubs on this
+  // toolchain/IDF combination and does not reach the VFS implementation.
+  std::string stripped(path);
+  while (stripped.size() > 1 && stripped.back() == '/')
+    stripped.pop_back();
+  if (stripped == "/") return true;  // SD root is always a directory
+  std::string fatfs_path = "0:" + stripped;
+  FILINFO fno;
+  FRESULT res = f_stat(fatfs_path.c_str(), &fno);
+  if (res != FR_OK) return false;
+  return (fno.fattrib & AM_DIR) != 0;
 }
 
 bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
 
 size_t SdMmc::file_size(const char *path) {
-  std::string absolut_path = this->build_path(path);
-  struct stat info;
-  size_t file_size = 0;
-  if (stat(absolut_path.c_str(), &info) < 0) {
-    ESP_LOGE(TAG, "Failed to stat file: %s", strerror(errno));
-    return -1;
+  // Use FATFS API directly — same reason as is_directory().
+  std::string stripped(path);
+  while (stripped.size() > 1 && stripped.back() == '/')
+    stripped.pop_back();
+  std::string fatfs_path = "0:" + stripped;
+  FILINFO fno;
+  FRESULT res = f_stat(fatfs_path.c_str(), &fno);
+  if (res != FR_OK) {
+    ESP_LOGE(TAG, "Failed to stat '%s': FATFS error %d", path, (int)res);
+    return static_cast<size_t>(-1);
   }
-  return info.st_size;
+  return static_cast<size_t>(fno.fsize);
 }
 
 size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }

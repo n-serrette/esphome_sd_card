@@ -19,7 +19,7 @@ class SDFileServer : public Component, public AsyncWebHandler {
   bool isRequestHandlerTrivial() const override { return false; }
 
   void set_url_prefix(const std::string &prefix);
-  void set_root_path(const std::string &path);
+  void set_sd_path(const std::string &path);
   void set_sd_mmc(sd_mmc::SdMmc *card);
   void set_deletion_enabled(bool allow);
   void set_download_enabled(bool allow);
@@ -30,7 +30,7 @@ class SDFileServer : public Component, public AsyncWebHandler {
   sd_mmc::SdMmc *sd_mmc_ = nullptr;
 
   std::string url_prefix_;
-  std::string root_path_;
+  std::string sd_path_;
   bool deletion_enabled_ = false;
   bool download_enabled_ = false;
   bool upload_enabled_ = false;

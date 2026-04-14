@@ -22,7 +22,7 @@ void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address(),
                 this->base_->get_port());
   ESP_LOGCONFIG(TAG, "  Url Prefix: %s", this->url_prefix_.c_str());
-  ESP_LOGCONFIG(TAG, "  Root Path: %s", this->root_path_.c_str());
+  ESP_LOGCONFIG(TAG, "  Root Path: %s", this->sd_path_.c_str());
   ESP_LOGCONFIG(TAG, "  Deletion Enabled: %s",
                 TRUEFALSE(this->deletion_enabled_));
   ESP_LOGCONFIG(TAG, "  Download Enabled : %s",
@@ -99,8 +99,8 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
 void SDFileServer::set_url_prefix(const std::string& prefix) {
   this->url_prefix_ = prefix;
 }
-void SDFileServer::set_root_path(const std::string& path) {
-  this->root_path_ = path;
+void SDFileServer::set_sd_path(const std::string& path) {
+  this->sd_path_ = path;
 }
 void SDFileServer::set_sd_mmc(sd_mmc::SdMmc* card) { this->sd_mmc_ = card; }
 void SDFileServer::set_deletion_enabled(bool allow) {
@@ -171,7 +171,7 @@ void SDFileServer::append_json_row(std::string& json, bool& first,
   std::string file_name = Path::file_name(info.path);
   std::string uri =
       "/" + Path::join(this->url_prefix_,
-                       Path::remove_root_path(info.path, this->root_path_));
+                       Path::remove_root_path(info.path, this->sd_path_));
 
   json += "  {\n";
   json += "    \"name\": \"" + escape_json(file_name) + "\",\n";
@@ -194,7 +194,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest* request,
   // Build breadcrumbs array
   std::string current_path = "/";
   std::string relative_path = Path::join(
-      this->url_prefix_, Path::remove_root_path(path, this->root_path_));
+      this->url_prefix_, Path::remove_root_path(path, this->sd_path_));
   std::vector<std::string> parts = Path::split_path(relative_path);
 
   std::string json = "{\n";
@@ -328,8 +328,8 @@ std::string SDFileServer::extract_path_from_url(const std::string& url) const {
 }
 
 std::string SDFileServer::build_absolute_path(std::string relative_path) const {
-  if (relative_path.empty()) return this->root_path_;
-  return Path::join(this->root_path_, relative_path);
+  if (relative_path.empty()) return this->sd_path_;
+  return Path::join(this->sd_path_, relative_path);
 }
 
 std::string Path::file_name(const std::string& path) {
