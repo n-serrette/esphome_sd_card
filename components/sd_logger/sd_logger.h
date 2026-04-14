@@ -17,7 +17,6 @@ extern "C" {
   #include "freertos/queue.h"
   #include "esp_system.h"
 }
-
 extern "C" {
   #include "esp_http_client.h"
   #include "esp_tls.h"

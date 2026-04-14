@@ -8,6 +8,11 @@ from .. import sd_mmc
 DEPENDENCIES = ["sd_mmc"]
 AUTO_LOAD = ["binary_sensor"]
 
+ESP_IDF_COMPONENTS = [
+    "esp_http_client",
+    "esp-tls",
+]
+
 # Exported so sensor.py / text_sensor.py platform files can reference the hub.
 CONF_SD_LOGGER_ID = "sd_logger_id"
 

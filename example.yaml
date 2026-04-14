@@ -8,7 +8,7 @@ esphome:
   friendly_name: "Black Box"
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: lolin_s3_pro
   variant: esp32s3
   framework:
     type: esp-idf
@@ -41,13 +41,10 @@ time:
 # ── SD card (4-bit SDMMC, GPIO-matrix on S3) ──────────────────────────────────
 sd_mmc:
   id: sd_card
-  clk_pin: 36
-  cmd_pin: 35
-  data0_pin: 37
-  data1_pin: 38
-  data2_pin: 33
-  data3_pin: 34
-  mode_1bit: false
+  cmd_pin: 11   # MOSI / CMD
+  clk_pin: 12   # SCK  (onboard TF slot)
+  data0_pin: 13 # MISO / DATA0
+  mode_1bit: true  # only 3 lines physically wired on LOLIN S3 Pro
 
 # ── Logging hub ───────────────────────────────────────────────────────────────
 sd_logger:
@@ -100,9 +97,24 @@ sensor:
   # SD card used space
   - platform: sd_mmc
     sd_mmc_id: sd_card
-    used_space:
-      name: "SD Used"
-      unit_of_measurement: "MB"
+    type: used_space
+    name: "SD Used (GB)"
+    filters:
+      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
+
+  - platform: sd_mmc
+    sd_mmc_id: sd_card
+    type: total_space
+    name: "SD Card Capacity (GB)"
+    filters:
+      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
+
+  - platform: sd_mmc
+    sd_mmc_id: sd_card
+    type: free_space
+    name: "SD Card Remaining (GB)"
+    filters:
+      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
 
   # ── Log engine RPM to its own daily CSV ─────────────────────────────────────
   - platform: sd_logger

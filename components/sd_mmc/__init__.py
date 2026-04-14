@@ -19,6 +19,13 @@ from esphome.components.esp32.const import (
 
 DEPENDENCIES = ["esp32"]
 
+ESP_IDF_COMPONENTS = [
+    "driver",
+    "fatfs",
+    "sdmmc",
+    "vfs",
+]
+
 CONF_SD_MMC_ID = "sd_mmc_id"
 CONF_CMD_PIN = "cmd_pin"
 CONF_DATA0_PIN = "data0_pin"
