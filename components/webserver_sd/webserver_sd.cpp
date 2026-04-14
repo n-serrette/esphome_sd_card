@@ -19,7 +19,7 @@ void SDFileServer::setup() { this->base_->add_handler(this); }
 
 void SDFileServer::dump_config() {
   ESP_LOGCONFIG(TAG, "Webserver SD:");
-  ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address().c_str(),
+  ESP_LOGCONFIG(TAG, "  Address: %s:%u", network::get_use_address(),
                 this->base_->get_port());
   ESP_LOGCONFIG(TAG, "  Url Prefix: %s", this->url_prefix_.c_str());
   ESP_LOGCONFIG(TAG, "  Root Path: %s", this->root_path_.c_str());
@@ -31,17 +31,18 @@ void SDFileServer::dump_config() {
 }
 
 bool SDFileServer::canHandle(AsyncWebServerRequest* request) const {
-  return str_startswith(std::string(request->url().c_str()),
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+  return str_startswith(std::string(request->url_to(url_buf)),
                         this->build_prefix());
 }
 
 void SDFileServer::handleRequest(AsyncWebServerRequest* request) {
-  if (!str_startswith(std::string(request->url().c_str()),
-                      this->build_prefix()))
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+  std::string url = std::string(request->url_to(url_buf));
+  if (!str_startswith(url, this->build_prefix()))
     return;
 
   auto method = request->method();
-  std::string url = request->url().c_str();
 
   if (method == HTTP_DELETE) {
     this->handle_delete(request);
@@ -68,8 +69,9 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
     return;
   }
 
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
   std::string extracted =
-      this->extract_path_from_url(std::string(request->url().c_str()));
+      this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
   if (index == 0 && !this->sd_mmc_->is_directory(path)) {
@@ -112,8 +114,9 @@ void SDFileServer::set_upload_enabled(bool allow) {
 }
 
 void SDFileServer::handle_get(AsyncWebServerRequest* request) const {
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
   std::string extracted =
-      this->extract_path_from_url(std::string(request->url().c_str()));
+      this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
   if (!this->sd_mmc_->is_directory(path)) {
@@ -268,35 +271,21 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
                                           const std::string &path,
                                           const std::string &mime,
                                           size_t file_size) const {
-  FILE *fp = fopen(path.c_str(), "rb");
-  if (!fp) {
-    ESP_LOGE(TAG, "handle_download_stream: fopen failed: %s", path.c_str());
-    request->send(404, "application/json", "{ \"error\": \"file not found\" }");
+  auto file_data = this->sd_mmc_->read_file(path);
+  if (file_data.empty()) {
+    ESP_LOGE(TAG, "handle_download_stream: read failed for '%s'", path.c_str());
+    request->send(503, "application/json",
+                  "{ \"error\": \"file read failed or file too large\" }");
     return;
   }
 
-  // Wrap FILE* in shared state — destructor closes the file once the async
-  // response finishes and all shared_ptr copies are released.
-  struct FileState {
-    FILE *fp;
-    explicit FileState(FILE *f) : fp(f) {}
-    ~FileState() { if (fp) { fclose(fp); fp = nullptr; } }
-  };
-  auto state = std::make_shared<FileState>(fp);
-
-  auto *response = request->beginResponse(
-      mime.c_str(), file_size,
-      [state](uint8_t *buf, size_t max_len, size_t index) -> size_t {
-        if (!state->fp) return 0;
-        if (fseek(state->fp, static_cast<long>(index), SEEK_SET) != 0) return 0;
-        return fread(buf, 1, max_len, state->fp);
-      });
-
   std::string fname = Path::file_name(path);
-  response->addHeader("Content-Disposition",
-                      "attachment; filename=\"" + fname + "\"");
-  ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(),
-           static_cast<unsigned>(file_size));
+  std::string disposition = "attachment; filename=\"" + fname + "\"";
+  auto *response = request->beginResponse(200, mime.c_str(),
+                                          file_data.data(), file_data.size());
+  response->addHeader("Content-Disposition", disposition.c_str());
+  ESP_LOGI(TAG, "Sending download: %s (%u bytes)", path.c_str(),
+           static_cast<unsigned>(file_data.size()));
   request->send(response);
 }
 
@@ -307,8 +296,9 @@ void SDFileServer::handle_delete(AsyncWebServerRequest* request) {
     return;
   }
 
+  char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
   std::string extracted =
-      this->extract_path_from_url(std::string(request->url().c_str()));
+      this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
   if (this->sd_mmc_->is_directory(path)) {
