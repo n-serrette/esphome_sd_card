@@ -266,9 +266,10 @@ void SdLogger::task_logging_entry_(void *param) {
   struct OpenFileCtx {
     FILE    *fp{nullptr};
     char     abs_path[96];
-    uint32_t ymd{0};           // YYYYMMDD used for DAILY rotation
+    uint32_t ymd{0};              // YYYYMMDD used for DAILY rotation
     size_t   bytes_written{0};
     long     catalog_offset{-1};
+    TickType_t last_fsync_tick{0};
   };
   std::map<std::string, OpenFileCtx> open_files;
 
@@ -295,6 +296,8 @@ void SdLogger::task_logging_entry_(void *param) {
     }
 
     if (need_rotate) {
+      fflush(ctx.fp);
+      fsync(fileno(ctx.fp));
       fclose(ctx.fp);
       ctx.fp = nullptr;
       catalog_update_closed(cat_path.c_str(), ctx.catalog_offset,
@@ -347,13 +350,18 @@ void SdLogger::task_logging_entry_(void *param) {
         }
       }
       ESP_LOGI(TAG, "Opened: %s", ctx.abs_path);
+      ctx.last_fsync_tick = xTaskGetTickCount();  // start fsync interval from open
     }
 
     // -- Write CSV row --------------------------------------------------------
     int written = fprintf(ctx.fp, "%u,%s\n", pkt.timestamp, pkt.value);
     if (written > 0) {
       fflush(ctx.fp);
-      fsync(fileno(ctx.fp));
+      TickType_t now_tick = xTaskGetTickCount();
+      if ((now_tick - ctx.last_fsync_tick) >= pdMS_TO_TICKS(self->fsync_interval_ms_)) {
+        fsync(fileno(ctx.fp));
+        ctx.last_fsync_tick = now_tick;
+      }
       ctx.bytes_written += static_cast<size_t>(written);
     } else {
       ESP_LOGE(TAG, "fprintf failed: %s (errno %d)", ctx.abs_path, errno);

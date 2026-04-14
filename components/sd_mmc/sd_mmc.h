@@ -90,6 +90,7 @@ class SdMmc : public Component {
 
   std::string build_path(const std::string &path) const;
   std::string sd_card_type() const;
+  void update_sensors();
 
  protected:
   ErrorCode init_error_;
@@ -106,7 +107,7 @@ class SdMmc : public Component {
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
 #endif
-  void update_sensors();
+  uint32_t last_sensor_update_ms_{0};  // debounce guard for f_getfree cost
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
   static std::string error_code_to_string(ErrorCode);
 };

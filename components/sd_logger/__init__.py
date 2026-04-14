@@ -24,6 +24,7 @@ CONF_BACKOFF_MAX          = "backoff_max"
 CONF_PING_URL             = "ping_url"
 CONF_PING_INTERVAL        = "ping_interval"
 CONF_PING_TIMEOUT         = "ping_timeout"
+CONF_FSYNC_INTERVAL        = "fsync_interval"
 CONF_SYNC_ONLINE          = "sync_online"
 CONF_SYNC_SENDING_BACKLOG = "sync_sending_backlog"
 
@@ -38,6 +39,7 @@ CONFIG_SCHEMA = cv.Schema(
         # FreeRTOS tuning
         cv.Optional(CONF_QUEUE_SIZE, default=50): cv.int_range(min=5, max=200),
         cv.Optional(CONF_TASK_PRIORITY, default=1): cv.int_range(min=0, max=5),
+        cv.Optional(CONF_FSYNC_INTERVAL, default="30s"): cv.positive_time_period_milliseconds,
 
         # Cloud upload — all optional; omit upload_url to disable
         cv.Optional(CONF_UPLOAD_URL, default=""): cv.string,
@@ -71,6 +73,7 @@ async def to_code(config):
 
     cg.add(var.set_queue_size(config[CONF_QUEUE_SIZE]))
     cg.add(var.set_task_priority(config[CONF_TASK_PRIORITY]))
+    cg.add(var.set_fsync_interval_ms(config[CONF_FSYNC_INTERVAL].total_milliseconds))
 
     if config[CONF_UPLOAD_URL]:
         cg.add(var.set_upload_url(config[CONF_UPLOAD_URL]))

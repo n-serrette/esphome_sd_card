@@ -83,13 +83,30 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
   }
 
   std::string file_path = Path::join(path, std::string(filename.c_str()));
+  std::string abs_path = this->sd_mmc_->build_path(file_path);
+
   if (index == 0) {
-    this->sd_mmc_->write_file(file_path.c_str(), data, len);
-  } else {
-    this->sd_mmc_->append_file(file_path.c_str(), data, len);
+    FILE *fp = fopen(abs_path.c_str(), "wb");
+    if (!fp) {
+      ESP_LOGE(TAG, "Upload: fopen failed for '%s' (errno %d)", abs_path.c_str(), errno);
+      request->send(500, "application/json", "{ \"error\": \"failed to open file for upload\" }");
+      return;
+    }
+    request->_tempObject = static_cast<void *>(fp);
+  }
+
+  FILE *fp = static_cast<FILE *>(request->_tempObject);
+  if (fp && len > 0) {
+    fwrite(data, 1, len, fp);
   }
 
   if (final) {
+    if (fp) {
+      fflush(fp);
+      fclose(fp);
+      request->_tempObject = nullptr;
+      this->sd_mmc_->update_sensors();
+    }
     auto response = request->beginResponse(201, "text/html", "upload success");
     response->addHeader("Connection", "close");
     request->send(response);
@@ -160,11 +177,11 @@ std::string escape_json(const std::string& s) {
   return res;
 }
 
-// Refactored to append a JSON object for a file/directory to the JSON string
-void SDFileServer::append_json_row(std::string& json, bool& first,
+// Writes a single JSON object for a file/directory entry directly to the stream.
+void SDFileServer::append_json_row(AsyncResponseStream *response, bool &first,
                                    const sd_mmc::FileInfo& info) const {
   if (!first) {
-    json += ",\n";
+    response->print(",\n");
   }
   first = false;
 
@@ -173,79 +190,59 @@ void SDFileServer::append_json_row(std::string& json, bool& first,
       "/" + Path::join(this->url_prefix_,
                        Path::remove_root_path(info.path, this->sd_path_));
 
-  json += "  {\n";
-  json += "    \"name\": \"" + escape_json(file_name) + "\",\n";
-  json += "    \"is_directory\": " +
-          (info.is_directory ? std::string("true") : std::string("false")) +
-          ",\n";
+  response->print("  {\n");
+  response->printf("    \"name\": \"%s\",\n", escape_json(file_name).c_str());
+  response->printf("    \"is_directory\": %s,\n", info.is_directory ? "true" : "false");
   if (!info.is_directory) {
-    json += "    \"size\": " + std::to_string(info.size) + ",\n";
+    response->printf("    \"size\": %u,\n", static_cast<unsigned>(info.size));
   }
-  json += "    \"uri\": \"" + escape_json(uri) + "\"\n";
-  json += "  }";
+  response->printf("    \"uri\": \"%s\"\n", escape_json(uri).c_str());
+  response->print("  }");
 }
 
-// Refactored to handle JSON response instead of HTML
+// Streams the directory listing as JSON directly into AsyncResponseStream —
+// no accumulator string, no heap reallocation per entry.
 void SDFileServer::handle_index(AsyncWebServerRequest* request,
                                 const std::string& path) const {
   AsyncResponseStream* response =
       request->beginResponseStream("application/json");
 
-  // Build breadcrumbs array
   std::string current_path = "/";
   std::string relative_path = Path::join(
       this->url_prefix_, Path::remove_root_path(path, this->sd_path_));
   std::vector<std::string> parts = Path::split_path(relative_path);
 
-  std::string json = "{\n";
+  response->print("{\n");
+  response->printf("  \"current_path\": \"%s\",\n", escape_json(relative_path).c_str());
+  response->printf("  \"upload_enabled\": %s,\n",   this->upload_enabled_   ? "true" : "false");
+  response->printf("  \"download_enabled\": %s,\n", this->download_enabled_ ? "true" : "false");
+  response->printf("  \"delete_enabled\": %s,\n",   this->deletion_enabled_ ? "true" : "false");
 
-  // Add current path
-  json += "  \"current_path\": \"" + escape_json(relative_path) + "\",\n";
-
-  // Add enabled flags (for client-side handling)
-  json += "  \"upload_enabled\": " +
-          (this->upload_enabled_ ? std::string("true") : std::string("false")) +
-          ",\n";
-  json +=
-      "  \"download_enabled\": " +
-      (this->download_enabled_ ? std::string("true") : std::string("false")) +
-      ",\n";
-  json +=
-      "  \"delete_enabled\": " +
-      (this->deletion_enabled_ ? std::string("true") : std::string("false")) +
-      ",\n";
-
-  
-
-  json += "  \"breadcrumbs\": [\n";
+  response->print("  \"breadcrumbs\": [\n");
   bool first_breadcrumb = true;
   for (const auto& part : parts) {
     if (!part.empty()) {
       current_path = Path::join(current_path, part);
-      if (!first_breadcrumb) {
-        json += ",\n";
-      }
+      if (!first_breadcrumb)
+        response->print(",\n");
       first_breadcrumb = false;
-      json += "    {\n";
-      json += "      \"name\": \"" + escape_json(part) + "\",\n";
-      json += "      \"url\": \"" + escape_json(current_path) + "\"\n";
-      json += "    }";
+      response->print("    {\n");
+      response->printf("      \"name\": \"%s\",\n", escape_json(part).c_str());
+      response->printf("      \"url\": \"%s\"\n",   escape_json(current_path).c_str());
+      response->print("    }");
     }
   }
-  json += "\n  ],\n";
+  response->print("\n  ],\n");
 
-  // Build files array
-  json += "  \"items\": [\n";
+  response->print("  \"items\": [\n");
   auto entries = this->sd_mmc_->list_directory_file_info(path, 0);
   bool first_file = true;
   for (const auto& entry : entries) {
-    append_json_row(json, first_file, entry);
+    append_json_row(response, first_file, entry);
   }
-  json += "\n  ]\n";
+  response->print("\n  ]\n");
+  response->print("}");
 
-  json += "}";
-
-  response->print(json.c_str());
   request->send(response);
 }
 
@@ -271,21 +268,29 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
                                           const std::string &path,
                                           const std::string &mime,
                                           size_t file_size) const {
-  auto file_data = this->sd_mmc_->read_file(path);
-  if (file_data.empty()) {
-    ESP_LOGE(TAG, "handle_download_stream: read failed for '%s'", path.c_str());
-    request->send(503, "application/json",
-                  "{ \"error\": \"file read failed or file too large\" }");
+  std::string abs_path = this->sd_mmc_->build_path(path);
+  FILE *raw_fp = fopen(abs_path.c_str(), "rb");
+  if (!raw_fp) {
+    ESP_LOGE(TAG, "handle_download_stream: fopen failed for '%s' (errno %d)", path.c_str(), errno);
+    request->send(503, "application/json", "{ \"error\": \"file read failed\" }");
     return;
   }
 
+  // Wrap in shared_ptr so the file is closed when the response/lambda is destroyed,
+  // even if the client disconnects mid-stream.
+  std::shared_ptr<FILE> fp(raw_fp, [](FILE *f) { fclose(f); });
+
+  auto *response = request->beginChunkedResponse(mime.c_str(),
+      [fp](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        return fread(buffer, 1, maxLen, fp.get());
+      });
+
   std::string fname = Path::file_name(path);
   std::string disposition = "attachment; filename=\"" + fname + "\"";
-  auto *response = request->beginResponse(200, mime.c_str(),
-                                          file_data.data(), file_data.size());
   response->addHeader("Content-Disposition", disposition.c_str());
-  ESP_LOGI(TAG, "Sending download: %s (%u bytes)", path.c_str(),
-           static_cast<unsigned>(file_data.size()));
+  response->addHeader("Content-Length", std::to_string(file_size).c_str());
+  ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(),
+           static_cast<unsigned>(file_size));
   request->send(response);
 }
 

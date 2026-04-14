@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "math.h"
+#include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
@@ -391,34 +392,42 @@ void SdMmc::update_sensors() {
   if (this->card_ == nullptr)
     return;
 
-  FATFS *fs;
-  DWORD fre_clust, fre_sect, tot_sect;
-  uint64_t total_bytes = 0, free_bytes = 0, used_bytes = 0;
-  auto res = f_getfree(MOUNT_POINT.c_str(), &fre_clust, &fs);
-  if (!res) {
-    tot_sect = (fs->n_fatent - 2) * fs->csize;
-    fre_sect = fre_clust * fs->csize;
+  static constexpr uint32_t SPACE_DEBOUNCE_MS = 30000;
+  uint32_t now = millis();
+  bool do_space = (this->last_sensor_update_ms_ == 0 ||
+                   (now - this->last_sensor_update_ms_) >= SPACE_DEBOUNCE_MS);
 
-    total_bytes = static_cast<uint64_t>(tot_sect) * FF_SS_SDCARD;
-    free_bytes = static_cast<uint64_t>(fre_sect) * FF_SS_SDCARD;
-    used_bytes = total_bytes - free_bytes;
+  if (do_space) {
+    this->last_sensor_update_ms_ = now;
 
-    // Sanity check: used should not exceed total
-    if (used_bytes > total_bytes) {
-      ESP_LOGW(TAG, "SD card space calculation error: used (%llu) > total (%llu)", used_bytes, total_bytes);
-      used_bytes = total_bytes;
+    FATFS *fs;
+    DWORD fre_clust, fre_sect, tot_sect;
+    uint64_t total_bytes = 0, free_bytes = 0, used_bytes = 0;
+    auto res = f_getfree(MOUNT_POINT.c_str(), &fre_clust, &fs);
+    if (!res) {
+      tot_sect = (fs->n_fatent - 2) * fs->csize;
+      fre_sect = fre_clust * fs->csize;
+
+      total_bytes = static_cast<uint64_t>(tot_sect) * FF_SS_SDCARD;
+      free_bytes = static_cast<uint64_t>(fre_sect) * FF_SS_SDCARD;
+      used_bytes = total_bytes - free_bytes;
+
+      if (used_bytes > total_bytes) {
+        ESP_LOGW(TAG, "SD card space calculation error: used (%llu) > total (%llu)", used_bytes, total_bytes);
+        used_bytes = total_bytes;
+      }
+
+      ESP_LOGD(TAG, "SD card space - Total: %llu, Free: %llu, Used: %llu bytes", total_bytes, free_bytes, used_bytes);
+
+      if (this->used_space_sensor_ != nullptr)
+        this->used_space_sensor_->publish_state(used_bytes);
+      if (this->total_space_sensor_ != nullptr)
+        this->total_space_sensor_->publish_state(total_bytes);
+      if (this->free_space_sensor_ != nullptr)
+        this->free_space_sensor_->publish_state(free_bytes);
+    } else {
+      ESP_LOGE(TAG, "Failed to get SD card filesystem info: f_getfree returned %d", res);
     }
-
-    ESP_LOGD(TAG, "SD card space - Total: %llu, Free: %llu, Used: %llu bytes", total_bytes, free_bytes, used_bytes);
-
-    if (this->used_space_sensor_ != nullptr)
-      this->used_space_sensor_->publish_state(used_bytes);
-    if (this->total_space_sensor_ != nullptr)
-      this->total_space_sensor_->publish_state(total_bytes);
-    if (this->free_space_sensor_ != nullptr)
-      this->free_space_sensor_->publish_state(free_bytes);
-  } else {
-    ESP_LOGE(TAG, "Failed to get SD card filesystem info: f_getfree returned %d", res);
   }
 
   for (auto &sensor : this->file_size_sensors_) {

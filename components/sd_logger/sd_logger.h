@@ -86,6 +86,7 @@ class SdLogger : public Component {
   // ── FreeRTOS queue / task tuning ────────────────────────────────────────────
   void set_queue_size(uint8_t n) { this->queue_size_ = n; }
   void set_task_priority(uint8_t p) { this->task_priority_ = p; }
+  void set_fsync_interval_ms(uint32_t ms) { this->fsync_interval_ms_ = ms; }
 
   // ── Cloud upload (optional; retained from previous design) ──────────────────
   void set_upload_url(const std::string &u) { this->upload_url_ = u; }
@@ -160,6 +161,7 @@ class SdLogger : public Component {
   TaskHandle_t  task_upload_{nullptr};
   uint8_t       queue_size_{50};
   uint8_t       task_priority_{1};
+  uint32_t      fsync_interval_ms_{30000};  // ms between fsync calls per file
 
   // ── Sink storage ──────────────────────────────────────────────────────────────
   struct NumericSinkEntry {
