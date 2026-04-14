@@ -74,6 +74,13 @@ async def to_code(config):
     include_builtin_idf_component("fatfs")
     include_builtin_idf_component("driver")
 
+    # fatfs LFN support: heap-based allocation + max 255-char filenames.
+    # ffconf.h maps CONFIG_FATFS_LFN_HEAP -> FF_USE_LFN=3 and
+    # CONFIG_FATFS_MAX_LFN -> FF_MAX_LFN. Both must be set when LFN is enabled;
+    # ff.c raises #error if FF_MAX_LFN is undefined.
+    cg.add_build_flag("-DCONFIG_FATFS_LFN_HEAP=1")
+    cg.add_build_flag("-DCONFIG_FATFS_MAX_LFN=255")
+
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
