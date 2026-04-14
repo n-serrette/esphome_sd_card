@@ -16,7 +16,7 @@ namespace esphome {
 namespace sd_mmc {
 
 static const char *TAG = "sd_mmc";
-static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN;
+static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + 255;  // 255 = FAT LFN max
 static const std::string MOUNT_POINT("/sdcard");
 
 std::string SdMmc::build_path(const std::string &path) const { return MOUNT_POINT + path; }
