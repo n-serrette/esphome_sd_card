@@ -11,7 +11,7 @@ from esphome.const import (
     CONF_PULLDOWN,
 )
 from esphome.core import CORE
-from esphome.components.esp32 import get_esp32_variant
+from esphome.components.esp32 import get_esp32_variant, include_builtin_idf_component
 from esphome.components.esp32.const import (
     VARIANT_ESP32,
     VARIANT_ESP32S3,
@@ -69,11 +69,10 @@ CONFIG_SCHEMA = cv.All(
 )
 
 async def to_code(config):
-    # ESP-IDF fatfs component headers are not in the default include path for
-    # external components.  Resolve via PlatformIO package-dir interpolation.
-    cg.add_build_flag(
-        "-I${platformio.packages_dir}/framework-espidf/components/fatfs/vfs"
-    )
+    # fatfs and driver are excluded from the ESP-IDF build by default.
+    # Re-include them so their headers and symbols are available.
+    include_builtin_idf_component("fatfs")
+    include_builtin_idf_component("driver")
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
