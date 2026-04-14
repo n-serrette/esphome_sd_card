@@ -1,8 +1,11 @@
 #include "webserver_sd.h"
 
+#include <cerrno>
+#include <cstdio>
 #include <map>
 #include <memory>
 
+#include "esp_http_server.h"
 #include "esphome/components/network/util.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
@@ -84,6 +87,7 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
 
   std::string file_path = Path::join(path, std::string(filename.c_str()));
   std::string abs_path = this->sd_mmc_->build_path(file_path);
+  const void *req_key = static_cast<const void *>(request);
 
   if (index == 0) {
     FILE *fp = fopen(abs_path.c_str(), "wb");
@@ -92,10 +96,11 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
       request->send(500, "application/json", "{ \"error\": \"failed to open file for upload\" }");
       return;
     }
-    request->_tempObject = static_cast<void *>(fp);
+    this->upload_files_[req_key] = fp;
   }
 
-  FILE *fp = static_cast<FILE *>(request->_tempObject);
+  auto it = this->upload_files_.find(req_key);
+  FILE *fp = (it != this->upload_files_.end()) ? it->second : nullptr;
   if (fp && len > 0) {
     fwrite(data, 1, len, fp);
   }
@@ -104,7 +109,7 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
     if (fp) {
       fflush(fp);
       fclose(fp);
-      request->_tempObject = nullptr;
+      this->upload_files_.erase(req_key);
       this->sd_mmc_->update_sensors();
     }
     auto response = request->beginResponse(201, "text/html", "upload success");
@@ -269,29 +274,37 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
                                           const std::string &mime,
                                           size_t file_size) const {
   std::string abs_path = this->sd_mmc_->build_path(path);
-  FILE *raw_fp = fopen(abs_path.c_str(), "rb");
-  if (!raw_fp) {
+  FILE *f = fopen(abs_path.c_str(), "rb");
+  if (!f) {
     ESP_LOGE(TAG, "handle_download_stream: fopen failed for '%s' (errno %d)", path.c_str(), errno);
     request->send(503, "application/json", "{ \"error\": \"file read failed\" }");
     return;
   }
 
-  // Wrap in shared_ptr so the file is closed when the response/lambda is destroyed,
-  // even if the client disconnects mid-stream.
-  std::shared_ptr<FILE> fp(raw_fp, [](FILE *f) { fclose(f); });
-
-  auto *response = request->beginChunkedResponse(mime.c_str(),
-      [fp](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
-        return fread(buffer, 1, maxLen, fp.get());
-      });
-
   std::string fname = Path::file_name(path);
   std::string disposition = "attachment; filename=\"" + fname + "\"";
-  response->addHeader("Content-Disposition", disposition.c_str());
-  response->addHeader("Content-Length", std::to_string(file_size).c_str());
-  ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(),
-           static_cast<unsigned>(file_size));
-  request->send(response);
+
+  // Use the underlying httpd_req_t directly for chunked transfer —
+  // the ESP-IDF AsyncWebServerRequest wrapper has no beginChunkedResponse().
+  httpd_req_t *req_h = static_cast<httpd_req_t *>(*request);
+  httpd_resp_set_status(req_h, "200 OK");
+  httpd_resp_set_type(req_h, mime.c_str());
+  httpd_resp_set_hdr(req_h, "Content-Disposition", disposition.c_str());
+
+  uint8_t buf[4096];
+  size_t n;
+  bool ok = true;
+  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+    if (httpd_resp_send_chunk(req_h, reinterpret_cast<const char *>(buf), static_cast<ssize_t>(n)) != ESP_OK) {
+      ESP_LOGW(TAG, "Streaming download: client disconnected for '%s'", path.c_str());
+      ok = false;
+      break;
+    }
+  }
+  if (ok)
+    httpd_resp_send_chunk(req_h, nullptr, 0);  // terminate chunked transfer
+  fclose(f);
+  ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(), static_cast<unsigned>(file_size));
 }
 
 void SDFileServer::handle_delete(AsyncWebServerRequest* request) {
