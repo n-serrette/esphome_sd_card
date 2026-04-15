@@ -22,15 +22,15 @@ namespace esphome {
 namespace sd_logger {
 
 // ── LogPacket ─────────────────────────────────────────────────────────────────
-// Fixed-size POD struct placed on the FreeRTOS queue by sensor on_value
-// callbacks (producer).  Must stay POD so xQueueSend copies it by value.
+// Fixed-size POD struct placed on the FreeRTOS queue by loop() (producer).
+// Must stay POD so xQueueSend copies it by value.
 static constexpr size_t LOG_PACKET_PREFIX_LEN = 32;
-static constexpr size_t LOG_PACKET_VALUE_LEN  = 48;
+static constexpr size_t LOG_PACKET_ROW_LEN    = 256;  // full CSV row incl. timestamp
 
 struct LogPacket {
-  uint32_t timestamp;                          // Unix epoch of the reading
-  char     file_prefix[LOG_PACKET_PREFIX_LEN]; // sink file_prefix, null-terminated
-  char     value[LOG_PACKET_VALUE_LEN];        // pre-formatted value string
+  uint32_t timestamp;                          // Unix epoch — used for rotation decisions
+  char     file_prefix[LOG_PACKET_PREFIX_LEN]; // routing key in task, null-terminated
+  char     row[LOG_PACKET_ROW_LEN];            // complete CSV row e.g. "1713149600,6000,95.3,D"
 };
 
 // ── CatalogRecord ─────────────────────────────────────────────────────────────
@@ -64,16 +64,34 @@ enum class RotationPolicy : uint8_t {
   SIZE  = 1, // New file when current file exceeds max_file_size bytes
 };
 
-// ── LogSink ───────────────────────────────────────────────────────────────────
-// Per-sensor logging configuration stored in the hub at initialisation time.
-struct LogSink {
-  std::string    file_prefix;
-  std::string    header;           // CSV header line written once per new file
-  std::string    format;           // printf-style format string, e.g. "%.2f"
-  uint32_t       log_interval_ms;
-  bool           force_write_on_change;
-  RotationPolicy rotation;
-  size_t         max_file_size;    // bytes; only evaluated when rotation == SIZE
+// ── SensorSlot ────────────────────────────────────────────────────────────────
+// One column entry within a LogConfig.
+struct SensorSlot {
+  enum class Type : uint8_t { NUMERIC, TEXT };
+  Type                     type;
+  sensor::Sensor          *numeric_sensor{nullptr};
+  text_sensor::TextSensor *text_sensor{nullptr};
+  std::string              format;   // printf format string, e.g. "%.2f" (numeric only)
+};
+
+// ── LogConfig ─────────────────────────────────────────────────────────────────
+// Static per-log configuration set during setup(); read-only in FreeRTOS task.
+struct LogConfig {
+  std::string             name;
+  std::string             folder;
+  std::string             file_prefix;
+  std::string             header;          // "" = auto-generated in setup()
+  uint32_t                log_interval_ms;
+  RotationPolicy          rotation;
+  size_t                  max_file_size;   // bytes; only evaluated when rotation == SIZE
+  std::vector<SensorSlot> slots;
+};
+
+// ── LogEntry ──────────────────────────────────────────────────────────────────
+// Owned by SdLogger; loop()-side only (no task access).
+struct LogEntry {
+  LogConfig config;
+  uint32_t  last_log_ms{0};   // millis() of last queue push
 };
 
 // ── SdLogger ──────────────────────────────────────────────────────────────────
@@ -101,27 +119,15 @@ class SdLogger : public Component {
   void set_sync_online_binary_sensor(binary_sensor::BinarySensor *b) { this->sync_online_bs_ = b; }
   void set_sync_sending_backlog_binary_sensor(binary_sensor::BinarySensor *b) { this->sync_sending_backlog_bs_ = b; }
 
-  // ── Sink registration — called from generated platform code ─────────────────
-  // Registers a numeric (float) sensor for CSV logging.
-  void add_numeric_sink(sensor::Sensor *sensor,
-                        const char *file_prefix,
-                        const char *header,
-                        const char *format,
-                        uint32_t log_interval_ms,
-                        bool force_write_on_change,
-                        uint8_t rotation,
-                        size_t max_file_size);
+  // ── Log registration — called from generated __init__.py code ───────────────
+  void begin_log(const char *name, const char *folder, const char *file_prefix,
+                 const char *header, uint32_t interval_ms,
+                 uint8_t rotation, size_t max_file_size);
+  void add_log_numeric_slot(sensor::Sensor *s, const char *format);
+  void add_log_text_slot(text_sensor::TextSensor *s);
+  void finalize_log();
 
-  // Registers a text sensor for CSV logging.
-  void add_text_sink(text_sensor::TextSensor *sensor,
-                     const char *file_prefix,
-                     const char *header,
-                     uint32_t log_interval_ms,
-                     bool force_write_on_change,
-                     uint8_t rotation,
-                     size_t max_file_size);
-
-  // ── Queue accessor used by sensor on_value lambdas ───────────────────────────
+  // ── Queue accessor ───────────────────────────────────────────────────────────
   QueueHandle_t get_log_queue() const { return this->log_queue_; }
 
   // ── ESPHome lifecycle ────────────────────────────────────────────────────────
@@ -163,23 +169,9 @@ class SdLogger : public Component {
   uint8_t       task_priority_{1};
   uint32_t      fsync_interval_ms_{30000};  // ms between fsync calls per file
 
-  // ── Sink storage ──────────────────────────────────────────────────────────────
-  struct NumericSinkEntry {
-    sensor::Sensor *sensor;
-    LogSink         sink;
-    uint32_t        last_log_ms{0};
-    bool            has_logged{false};
-    float           last_value{0.0f};
-  };
-  struct TextSinkEntry {
-    text_sensor::TextSensor *sensor;
-    LogSink                  sink;
-    uint32_t                 last_log_ms{0};
-    bool                     has_logged{false};
-    std::string              last_value;
-  };
-  std::vector<NumericSinkEntry> numeric_sinks_;
-  std::vector<TextSinkEntry>    text_sinks_;
+  // ── Log storage ───────────────────────────────────────────────────────────────
+  std::vector<LogEntry> logs_;
+  LogEntry             *pending_log_{nullptr};  // temporary during begin/finalize
 
   // ── Cloud upload config ───────────────────────────────────────────────────────
   std::string upload_url_;
@@ -194,9 +186,6 @@ class SdLogger : public Component {
   // ── Binary sensors ────────────────────────────────────────────────────────────
   binary_sensor::BinarySensor *sync_online_bs_{nullptr};
   binary_sensor::BinarySensor *sync_sending_backlog_bs_{nullptr};
-
-  // ── Loop state ────────────────────────────────────────────────────────────────
-  bool callbacks_attached_{false};
 };
 
 }  // namespace sd_logger

@@ -2,18 +2,20 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import time as time_comp
 from esphome.components import binary_sensor as binary_sensor_comp
+from esphome.components import sensor as sensor_comp
+from esphome.components import text_sensor as text_sensor_comp
 from esphome.const import CONF_ID
 from .. import sd_mmc
 
 DEPENDENCIES = ["sd_mmc"]
 AUTO_LOAD = ["binary_sensor"]
 
-# Exported so sensor.py / text_sensor.py platform files can reference the hub.
 CONF_SD_LOGGER_ID = "sd_logger_id"
 
 sd_logger_ns = cg.esphome_ns.namespace("sd_logger")
 SdLogger = sd_logger_ns.class_("SdLogger", cg.Component)
 
+# ── Top-level keys ────────────────────────────────────────────────────────────
 CONF_TIME_ID              = "time_id"
 CONF_QUEUE_SIZE           = "queue_size"
 CONF_TASK_PRIORITY        = "task_priority"
@@ -24,9 +26,49 @@ CONF_BACKOFF_MAX          = "backoff_max"
 CONF_PING_URL             = "ping_url"
 CONF_PING_INTERVAL        = "ping_interval"
 CONF_PING_TIMEOUT         = "ping_timeout"
-CONF_FSYNC_INTERVAL        = "fsync_interval"
+CONF_FSYNC_INTERVAL       = "fsync_interval"
 CONF_SYNC_ONLINE          = "sync_online"
 CONF_SYNC_SENDING_BACKLOG = "sync_sending_backlog"
+
+# ── logs: list keys ───────────────────────────────────────────────────────────
+CONF_LOGS         = "logs"
+CONF_NAME         = "name"
+CONF_FOLDER       = "folder"
+CONF_FILE_PREFIX  = "file_prefix"
+CONF_HEADER       = "header"
+CONF_LOG_INTERVAL = "log_interval"
+CONF_ROTATION     = "rotation"
+CONF_MAX_FILE_SIZE = "max_file_size"
+CONF_SENSORS      = "sensors"
+CONF_SENSOR_ID    = "sensor_id"
+CONF_FORMAT       = "format"
+
+ROTATION_OPTIONS = {"daily": 0, "size": 1}
+
+# ── Sensor slot schema (numeric or text, distinguished by ID type) ─────────────
+SENSOR_SLOT_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_SENSOR_ID): cv.Any(
+            cv.use_id(sensor_comp.Sensor),
+            cv.use_id(text_sensor_comp.TextSensor),
+        ),
+        cv.Optional(CONF_FORMAT, default="%.4f"): cv.string_strict,
+    }
+)
+
+# ── Per-log schema ─────────────────────────────────────────────────────────────
+LOG_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_NAME, default=""):           cv.string,
+        cv.Optional(CONF_FOLDER, default=""):         cv.string,
+        cv.Required(CONF_FILE_PREFIX):                cv.string_strict,
+        cv.Optional(CONF_HEADER, default=""):         cv.string,
+        cv.Required(CONF_LOG_INTERVAL):               cv.positive_time_period_milliseconds,
+        cv.Optional(CONF_ROTATION, default="daily"):  cv.one_of(*ROTATION_OPTIONS, lower=True),
+        cv.Optional(CONF_MAX_FILE_SIZE, default=52428800): cv.int_range(min=1024),
+        cv.Optional(CONF_SENSORS, default=[]):        cv.ensure_list(SENSOR_SLOT_SCHEMA),
+    }
+)
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -57,6 +99,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_SYNC_SENDING_BACKLOG): binary_sensor_comp.binary_sensor_schema().extend(
             {cv.Optional("name", default="Sync Sending Backlog"): cv.string}
         ),
+
+        # Log definitions
+        cv.Optional(CONF_LOGS, default=[]): cv.ensure_list(LOG_SCHEMA),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -93,3 +138,26 @@ async def to_code(config):
     if CONF_SYNC_SENDING_BACKLOG in config:
         bs2 = await binary_sensor_comp.new_binary_sensor(config[CONF_SYNC_SENDING_BACKLOG])
         cg.add(var.set_sync_sending_backlog_binary_sensor(bs2))
+
+    # ── Register logs ────────────────────────────────────────────────────────
+    for log_cfg in config.get(CONF_LOGS, []):
+        rot = ROTATION_OPTIONS[log_cfg[CONF_ROTATION]]
+        cg.add(
+            var.begin_log(
+                log_cfg[CONF_NAME],
+                log_cfg[CONF_FOLDER],
+                log_cfg[CONF_FILE_PREFIX],
+                log_cfg[CONF_HEADER],
+                log_cfg[CONF_LOG_INTERVAL].total_milliseconds,
+                rot,
+                log_cfg[CONF_MAX_FILE_SIZE],
+            )
+        )
+        for slot in log_cfg.get(CONF_SENSORS, []):
+            sid = slot[CONF_SENSOR_ID]
+            s = await cg.get_variable(sid)
+            if sid.type == text_sensor_comp.TextSensor:
+                cg.add(var.add_log_text_slot(s))
+            else:
+                cg.add(var.add_log_numeric_slot(s, slot[CONF_FORMAT]))
+        cg.add(var.finalize_log())

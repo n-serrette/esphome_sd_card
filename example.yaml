@@ -65,6 +65,29 @@ sd_logger:
     name: "Cloud Sync Online"
   sync_sending_backlog:
     name: "Cloud Sync Backlog"
+  logs:
+    # ── Engine RPM + vehicle speed in one daily CSV ────────────────────────────
+    - name: "Vehicle Data"
+      folder: "vehicle"
+      file_prefix: "vehicle"
+      log_interval: 1s
+      rotation: daily
+      sensors:
+        - sensor_id: engine_rpm
+          format: "%.0f"
+        - sensor_id: vehicle_speed
+          format: "%.1f"
+        - sensor_id: gear_pos    # text sensor — format ignored
+
+    # ── Gear changes only — size rotation, 10 MB per file ─────────────────────
+    - name: "Gear Log"
+      folder: "gear"
+      file_prefix: "gear"
+      log_interval: 5s
+      rotation: size
+      max_file_size: 10485760   # 10 MB
+      sensors:
+        - sensor_id: gear_pos
 
 # ── Sensors ───────────────────────────────────────────────────────────────────
 sensor:
@@ -116,29 +139,6 @@ sensor:
     filters:
       - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
 
-  # ── Log engine RPM to its own daily CSV ─────────────────────────────────────
-  - platform: sd_logger
-    sd_logger_id: logger
-    sensor_id: engine_rpm
-    file_prefix: "rpm"
-    header: "timestamp,rpm"
-    format: "%.0f"
-    log_interval: 1s
-    rotation: daily
-    force_write_on_change: false
-
-  # ── Log vehicle speed — size rotation, 10 MB per file ───────────────────────
-  - platform: sd_logger
-    sd_logger_id: logger
-    sensor_id: vehicle_speed
-    file_prefix: "speed"
-    header: "timestamp,speed_kmh"
-    format: "%.1f"
-    log_interval: 1s
-    rotation: size
-    max_file_size: 10485760   # 10 MB
-    force_write_on_change: true
-
 text_sensor:
   # Simulated gear position — replace with your real CAN/OBD sensor
   - platform: template
@@ -154,16 +154,6 @@ text_sensor:
     sd_mmc_id: sd_card
     sd_card_type:
       name: "SD Card Type"
-
-  # ── Log gear position as text CSV ────────────────────────────────────────────
-  - platform: sd_logger
-    sd_logger_id: logger
-    sensor_id: gear_pos
-    file_prefix: "gear"
-    header: "timestamp,gear"
-    log_interval: 1s
-    rotation: daily
-    force_write_on_change: true   # log immediately on gear change
 
 binary_sensor:
   - platform: template

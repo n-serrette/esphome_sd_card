@@ -4,7 +4,9 @@
 #include <cstring>
 #include <cstdio>
 #include <ctime>
+#include <cmath>
 #include <map>
+#include <sys/stat.h>
 
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
@@ -120,6 +122,30 @@ void SdLogger::setup() {
   if (this->sd_mmc_) {
     std::string cat_path = this->sd_mmc_->build_path(CATALOG_REL);
     catalog_scan_recover(cat_path.c_str());
+
+    // Ensure sub-directories exist and auto-generate headers
+    for (auto &entry : this->logs_) {
+      // Create folder if specified
+      if (!entry.config.folder.empty()) {
+        std::string dir = this->sd_mmc_->build_path("/" + entry.config.folder);
+        if (mkdir(dir.c_str(), 0777) != 0 && errno != EEXIST) {
+          ESP_LOGW(TAG, "mkdir failed for %s (errno %d)", dir.c_str(), errno);
+        }
+      }
+      // Auto-generate header if blank
+      if (entry.config.header.empty()) {
+        std::string h = "timestamp";
+        for (const auto &slot : entry.config.slots) {
+          h += ",";
+          if (slot.type == SensorSlot::Type::NUMERIC) {
+            h += slot.numeric_sensor->get_object_id();
+          } else {
+            h += slot.text_sensor->get_object_id();
+          }
+        }
+        entry.config.header = h;
+      }
+    }
   }
 
   BaseType_t ret = xTaskCreatePinnedToCore(
@@ -136,99 +162,106 @@ void SdLogger::setup() {
     return;
   }
 
-  ESP_LOGI(TAG, "SdLogger ready -- queue %u packets, task prio %u",
-           this->queue_size_, this->task_priority_);
+  ESP_LOGI(TAG, "SdLogger ready -- %u logs, queue %u packets, task prio %u",
+           this->logs_.size(), this->queue_size_, this->task_priority_);
 }
 
 void SdLogger::loop() {
-  if (this->callbacks_attached_) return;
+  if (!this->log_queue_) return;
+
+  const uint32_t now_ms = millis();
+
+  // Avoid the RTC read entirely when no log is due
+  bool any_due = false;
+  for (const auto &entry : this->logs_) {
+    if ((now_ms - entry.last_log_ms) >= entry.config.log_interval_ms) {
+      any_due = true;
+      break;
+    }
+  }
+  if (!any_due) return;
+
   if (!this->time_valid_()) return;
+  auto t = this->time_->now();
+  if (!t.is_valid()) return;
 
-  for (auto &e : this->numeric_sinks_) {
-    e.sensor->add_on_state_callback([this, &e](float value) {
-      if (!this->log_queue_) return;
-      auto t = this->time_->now();
-      if (!t.is_valid()) return;  // drop packet if clock not set
-      uint32_t now_ms = millis();
-      bool enough_time = (now_ms - e.last_log_ms) >= e.sink.log_interval_ms;
-      bool force = e.sink.force_write_on_change && (value != e.last_value);
-      if (!enough_time && !force) return;
-      LogPacket pkt;
-      memset(&pkt, 0, sizeof(pkt));
-      pkt.timestamp = static_cast<uint32_t>(t.timestamp);
-      strlcpy(pkt.file_prefix, e.sink.file_prefix.c_str(), sizeof(pkt.file_prefix));
-      snprintf(pkt.value, sizeof(pkt.value), e.sink.format.c_str(), value);
-      if (xQueueSend(this->log_queue_, &pkt, 0) != pdTRUE)
-        ESP_LOGW(TAG, "Queue full, dropping packet for %s", pkt.file_prefix);
-      e.last_log_ms = now_ms;
-      e.last_value  = value;
-    });
+  const uint32_t ts = static_cast<uint32_t>(t.timestamp);
+
+  for (auto &entry : this->logs_) {
+    if ((now_ms - entry.last_log_ms) < entry.config.log_interval_ms) continue;
+
+    // Build the CSV row: timestamp,val1,val2,...
+    char row[LOG_PACKET_ROW_LEN];
+    int  pos = snprintf(row, sizeof(row), "%u", ts);
+
+    for (const auto &slot : entry.config.slots) {
+      if (pos >= static_cast<int>(sizeof(row)) - 2) break;  // guard overflow
+      row[pos++] = ',';
+      if (slot.type == SensorSlot::Type::NUMERIC) {
+        float v = slot.numeric_sensor->state;
+        if (std::isnan(v)) {
+          row[pos] = '\0';  // empty field
+        } else {
+          pos += snprintf(row + pos, sizeof(row) - pos, slot.format.c_str(), v);
+        }
+      } else {
+        const std::string &sv = slot.text_sensor->state;
+        size_t remain = sizeof(row) - pos;
+        strlcpy(row + pos, sv.c_str(), remain);
+        pos += static_cast<int>(sv.size() < remain ? sv.size() : remain - 1);
+      }
+    }
+
+    LogPacket pkt;
+    memset(&pkt, 0, sizeof(pkt));
+    pkt.timestamp = ts;
+    strlcpy(pkt.file_prefix, entry.config.file_prefix.c_str(), sizeof(pkt.file_prefix));
+    strlcpy(pkt.row, row, sizeof(pkt.row));
+
+    if (xQueueSend(this->log_queue_, &pkt, 0) != pdTRUE)
+      ESP_LOGW(TAG, "Queue full, dropping packet for %s", pkt.file_prefix);
+
+    entry.last_log_ms = now_ms;
   }
-
-  for (auto &e : this->text_sinks_) {
-    e.sensor->add_on_state_callback([this, &e](std::string value) {
-      if (!this->log_queue_) return;
-      auto t = this->time_->now();
-      if (!t.is_valid()) return;
-      uint32_t now_ms = millis();
-      bool enough_time = (now_ms - e.last_log_ms) >= e.sink.log_interval_ms;
-      bool force = e.sink.force_write_on_change && (value != e.last_value);
-      if (!enough_time && !force) return;
-      LogPacket pkt;
-      memset(&pkt, 0, sizeof(pkt));
-      pkt.timestamp = static_cast<uint32_t>(t.timestamp);
-      strlcpy(pkt.file_prefix, e.sink.file_prefix.c_str(), sizeof(pkt.file_prefix));
-      strlcpy(pkt.value, value.c_str(), sizeof(pkt.value));
-      if (xQueueSend(this->log_queue_, &pkt, 0) != pdTRUE)
-        ESP_LOGW(TAG, "Queue full, dropping packet for %s", pkt.file_prefix);
-      e.last_log_ms = now_ms;
-      e.last_value  = value;
-    });
-  }
-
-  this->callbacks_attached_ = true;
-  ESP_LOGI(TAG, "Callbacks attached: %u numeric, %u text",
-           this->numeric_sinks_.size(), this->text_sinks_.size());
 }
 
-// -- Sink registration --------------------------------------------------------
+// -- Log registration ---------------------------------------------------------
 
-void SdLogger::add_numeric_sink(sensor::Sensor *sensor,
-                                 const char *file_prefix,
-                                 const char *header,
-                                 const char *format,
-                                 uint32_t log_interval_ms,
-                                 bool force_write_on_change,
-                                 uint8_t rotation,
-                                 size_t max_file_size) {
-  NumericSinkEntry entry;
-  entry.sensor                     = sensor;
-  entry.sink.file_prefix           = file_prefix;
-  entry.sink.header                = header;
-  entry.sink.format                = format;
-  entry.sink.log_interval_ms       = log_interval_ms;
-  entry.sink.force_write_on_change = force_write_on_change;
-  entry.sink.rotation              = static_cast<RotationPolicy>(rotation);
-  entry.sink.max_file_size         = max_file_size;
-  this->numeric_sinks_.push_back(std::move(entry));
+void SdLogger::begin_log(const char *name, const char *folder, const char *file_prefix,
+                          const char *header, uint32_t interval_ms,
+                          uint8_t rotation, size_t max_file_size) {
+  this->pending_log_ = new LogEntry();
+  this->pending_log_->config.name            = name;
+  this->pending_log_->config.folder          = folder;
+  this->pending_log_->config.file_prefix     = file_prefix;
+  this->pending_log_->config.header          = header;
+  this->pending_log_->config.log_interval_ms = interval_ms;
+  this->pending_log_->config.rotation        = static_cast<RotationPolicy>(rotation);
+  this->pending_log_->config.max_file_size   = max_file_size;
 }
 
-void SdLogger::add_text_sink(text_sensor::TextSensor *sensor,
-                              const char *file_prefix,
-                              const char *header,
-                              uint32_t log_interval_ms,
-                              bool force_write_on_change,
-                              uint8_t rotation,
-                              size_t max_file_size) {
-  TextSinkEntry entry;
-  entry.sensor                     = sensor;
-  entry.sink.file_prefix           = file_prefix;
-  entry.sink.header                = header;
-  entry.sink.log_interval_ms       = log_interval_ms;
-  entry.sink.force_write_on_change = force_write_on_change;
-  entry.sink.rotation              = static_cast<RotationPolicy>(rotation);
-  entry.sink.max_file_size         = max_file_size;
-  this->text_sinks_.push_back(std::move(entry));
+void SdLogger::add_log_numeric_slot(sensor::Sensor *s, const char *format) {
+  if (!this->pending_log_) return;
+  SensorSlot slot;
+  slot.type           = SensorSlot::Type::NUMERIC;
+  slot.numeric_sensor = s;
+  slot.format         = format;
+  this->pending_log_->config.slots.push_back(std::move(slot));
+}
+
+void SdLogger::add_log_text_slot(text_sensor::TextSensor *s) {
+  if (!this->pending_log_) return;
+  SensorSlot slot;
+  slot.type        = SensorSlot::Type::TEXT;
+  slot.text_sensor = s;
+  this->pending_log_->config.slots.push_back(std::move(slot));
+}
+
+void SdLogger::finalize_log() {
+  if (!this->pending_log_) return;
+  this->logs_.push_back(std::move(*this->pending_log_));
+  delete this->pending_log_;
+  this->pending_log_ = nullptr;
 }
 
 // -- Helpers ------------------------------------------------------------------
@@ -253,12 +286,10 @@ void SdLogger::publish_sync_backlog_(bool v) {
 void SdLogger::task_logging_entry_(void *param) {
   SdLogger *self = static_cast<SdLogger *>(param);
 
-  // Build prefix -> sink config lookup (read-only after setup, no lock needed)
-  std::map<std::string, const LogSink *> sink_map;
-  for (const auto &e : self->numeric_sinks_)
-    sink_map[e.sink.file_prefix] = &e.sink;
-  for (const auto &e : self->text_sinks_)
-    sink_map[e.sink.file_prefix] = &e.sink;
+  // Build prefix -> LogConfig lookup (read-only after setup, no lock needed)
+  std::map<std::string, const LogConfig *> sink_map;
+  for (const auto &entry : self->logs_)
+    sink_map[entry.config.file_prefix] = &entry.config;
 
   const std::string cat_path = self->sd_mmc_->build_path(CATALOG_REL);
 
@@ -282,17 +313,17 @@ void SdLogger::task_logging_entry_(void *param) {
       ESP_LOGW(TAG, "Unknown file_prefix in queue: %.32s", pkt.file_prefix);
       continue;
     }
-    const LogSink *sink = it->second;
-    OpenFileCtx   &ctx  = open_files[pkt.file_prefix];
+    const LogConfig *cfg = it->second;
+    OpenFileCtx     &ctx = open_files[pkt.file_prefix];
 
     // -- Rotation check -------------------------------------------------------
     const uint32_t cur_ymd = epoch_to_ymd_u32(pkt.timestamp);
     bool need_rotate = false;
     if (ctx.fp != nullptr) {
-      if (sink->rotation == RotationPolicy::DAILY)
+      if (cfg->rotation == RotationPolicy::DAILY)
         need_rotate = (cur_ymd != ctx.ymd);
       else
-        need_rotate = (ctx.bytes_written >= sink->max_file_size);
+        need_rotate = (ctx.bytes_written >= cfg->max_file_size);
     }
 
     if (need_rotate) {
@@ -308,16 +339,26 @@ void SdLogger::task_logging_entry_(void *param) {
 
     // -- Open new file if needed ----------------------------------------------
     if (ctx.fp == nullptr) {
-      char rel_path[64];
-      if (sink->rotation == RotationPolicy::DAILY) {
+      char rel_path[80];
+      if (cfg->rotation == RotationPolicy::DAILY) {
         int y = 0, m = 0, d = 0;
         epoch_to_ymd(pkt.timestamp, &y, &m, &d);
-        snprintf(rel_path, sizeof(rel_path), "/%s_%04d-%02d-%02d.csv",
-                 pkt.file_prefix, y, m, d);
+        if (!cfg->folder.empty()) {
+          snprintf(rel_path, sizeof(rel_path), "/%s/%s_%04d-%02d-%02d.csv",
+                   cfg->folder.c_str(), cfg->file_prefix.c_str(), y, m, d);
+        } else {
+          snprintf(rel_path, sizeof(rel_path), "/%s_%04d-%02d-%02d.csv",
+                   cfg->file_prefix.c_str(), y, m, d);
+        }
       } else {
         // SIZE rotation: use creation epoch as unique suffix
-        snprintf(rel_path, sizeof(rel_path), "/%s_%u.csv",
-                 pkt.file_prefix, pkt.timestamp);
+        if (!cfg->folder.empty()) {
+          snprintf(rel_path, sizeof(rel_path), "/%s/%s_%u.csv",
+                   cfg->folder.c_str(), cfg->file_prefix.c_str(), pkt.timestamp);
+        } else {
+          snprintf(rel_path, sizeof(rel_path), "/%s_%u.csv",
+                   cfg->file_prefix.c_str(), pkt.timestamp);
+        }
       }
 
       long offset = catalog_append_open(cat_path.c_str(), pkt.timestamp, rel_path);
@@ -334,15 +375,15 @@ void SdLogger::task_logging_entry_(void *param) {
         continue;
       }
 
-      // Initialise bytes_written from the real file position so that SIZE
-      // rotation thresholds and catalog file_size are accurate on reopen.
+      // Initialise bytes_written from real file position so SIZE rotation and
+      // catalog file_size are accurate on reopen.
       fseek(ctx.fp, 0, SEEK_END);
       long existing_size = ftell(ctx.fp);
       ctx.bytes_written = (existing_size > 0) ? static_cast<size_t>(existing_size) : 0;
 
       // Write header only if the file is new (empty)
       if (existing_size == 0) {
-        int hlen = fprintf(ctx.fp, "%s\n", sink->header.c_str());
+        int hlen = fprintf(ctx.fp, "%s\n", cfg->header.c_str());
         if (hlen > 0) {
           fflush(ctx.fp);
           fsync(fileno(ctx.fp));
@@ -350,15 +391,15 @@ void SdLogger::task_logging_entry_(void *param) {
         }
       }
       ESP_LOGI(TAG, "Opened: %s", ctx.abs_path);
-      ctx.last_fsync_tick = xTaskGetTickCount();  // start fsync interval from open
+      ctx.last_fsync_tick = xTaskGetTickCount();
     }
 
     // -- Write CSV row --------------------------------------------------------
-    int written = fprintf(ctx.fp, "%u,%s\n", pkt.timestamp, pkt.value);
+    int written = fprintf(ctx.fp, "%s\n", pkt.row);
     if (written > 0) {
-      fflush(ctx.fp);
       TickType_t now_tick = xTaskGetTickCount();
       if ((now_tick - ctx.last_fsync_tick) >= pdMS_TO_TICKS(self->fsync_interval_ms_)) {
+        fflush(ctx.fp);
         fsync(fileno(ctx.fp));
         ctx.last_fsync_tick = now_tick;
       }
