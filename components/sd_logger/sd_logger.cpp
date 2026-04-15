@@ -159,13 +159,11 @@ void SdLogger::setup() {
         std::string h = "timestamp";
         for (const auto &slot : entry.config.slots) {
           h += ",";
-          std::string col;
-          if (slot.type == SensorSlot::Type::NUMERIC) {
-            slot.numeric_sensor->get_object_id_to(col);
-          } else {
-            slot.text_sensor->get_object_id_to(col);
-          }
-          h += col;
+          char id_buf[128];
+          esphome::StringRef sr = (slot.type == SensorSlot::Type::NUMERIC)
+              ? slot.numeric_sensor->get_object_id_to(id_buf)
+              : slot.text_sensor->get_object_id_to(id_buf);
+          h.append(sr.data(), sr.size());
         }
         entry.config.header = h;
       }
