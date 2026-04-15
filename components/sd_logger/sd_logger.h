@@ -149,6 +149,9 @@ class SdLogger : public Component {
   static void task_logging_entry_(void *param); // Phase 2: CSV append + fsync
   static void task_upload_entry_(void *param);  // Phase 5: catalog walk + HTTP PUT
 
+  // ── Directory helper ─────────────────────────────────────────────────────────
+  void make_dirs_(const std::string &rel_path);  // recursive mkdir via sd_mmc_
+
   // ── HTTP helpers (retained; used by upload task in Phase 5) ──────────────────
   bool http_request_(const char *url,
                      int method,

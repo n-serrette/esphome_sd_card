@@ -6,7 +6,6 @@
 #include <ctime>
 #include <cmath>
 #include <map>
-#include <sys/stat.h>
 
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
@@ -111,21 +110,20 @@ static void catalog_update_closed(const char *cat_path, long offset, uint32_t fi
 
 // -- Directory helpers -------------------------------------------------------
 
-// Recursively create all components of an absolute path (mkdir -p equivalent).
-// Ignores EEXIST at each level.  Logs a warning only on unexpected errors.
-static void make_dirs_(const char *abs_path) {
-  char tmp[128];
-  strlcpy(tmp, abs_path, sizeof(tmp));
-  for (char *p = tmp + 1; *p; ++p) {
-    if (*p == '/') {
-      *p = '\0';
-      if (mkdir(tmp, 0777) != 0 && errno != EEXIST)
-        ESP_LOGW(TAG, "mkdir(%s) errno %d", tmp, errno);
-      *p = '/';
+// Recursively ensure all components of a relative SD path exist.
+// rel_path must be like "logs" or "logs/vehicle" (no leading slash, no
+// /sdcard prefix).  Uses sd_mmc_->create_directory() which calls f_mkdir
+// directly, bypassing the broken POSIX mkdir stub on this toolchain.
+void SdLogger::make_dirs_(const std::string &rel_path) {
+  // Walk each slash-separated prefix and create it if it doesn't exist.
+  std::string::size_type pos = 0;
+  while (pos != std::string::npos) {
+    pos = rel_path.find('/', pos + 1);
+    std::string part = "/" + rel_path.substr(0, pos == std::string::npos ? rel_path.size() : pos);
+    if (!this->sd_mmc_->is_directory(part)) {
+      this->sd_mmc_->create_directory(part.c_str());
     }
   }
-  if (mkdir(tmp, 0777) != 0 && errno != EEXIST)
-    ESP_LOGW(TAG, "mkdir(%s) errno %d", tmp, errno);
 }
 
 // -- ESPHome lifecycle --------------------------------------------------------
@@ -143,8 +141,7 @@ void SdLogger::setup() {
     catalog_scan_recover(cat_path.c_str());
 
     // Create base log directory
-    std::string base_abs = this->sd_mmc_->build_path("/" + this->path_);
-    make_dirs_(base_abs.c_str());
+    make_dirs_(this->path_);
 
     // Per-log: compute subdir, create it, auto-generate header
     for (auto &entry : this->logs_) {
@@ -154,20 +151,21 @@ void SdLogger::setup() {
       } else {
         entry.config.subdir = this->path_ + "/" + entry.config.folder;
       }
-      std::string dir_abs = this->sd_mmc_->build_path("/" + entry.config.subdir);
-      make_dirs_(dir_abs.c_str());
-      ESP_LOGI(TAG, "Log '%s' -> %s", entry.config.file_prefix.c_str(), dir_abs.c_str());
+      make_dirs_(entry.config.subdir);
+      ESP_LOGI(TAG, "Log '%s' -> /%s", entry.config.file_prefix.c_str(), entry.config.subdir.c_str());
 
       // Auto-generate header if blank
       if (entry.config.header.empty()) {
         std::string h = "timestamp";
         for (const auto &slot : entry.config.slots) {
           h += ",";
+          std::string col;
           if (slot.type == SensorSlot::Type::NUMERIC) {
-            h += slot.numeric_sensor->get_object_id();
+            slot.numeric_sensor->get_object_id_to(col);
           } else {
-            h += slot.text_sensor->get_object_id();
+            slot.text_sensor->get_object_id_to(col);
           }
+          h += col;
         }
         entry.config.header = h;
       }
