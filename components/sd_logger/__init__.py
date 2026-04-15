@@ -40,23 +40,29 @@ CONF_LOG_INTERVAL = "log_interval"
 CONF_ROTATION     = "rotation"
 CONF_MAX_FILE_SIZE = "max_file_size"
 CONF_SENSORS      = "sensors"
+CONF_TEXT_SENSORS = "text_sensors"
 CONF_SENSOR_ID    = "sensor_id"
 CONF_FORMAT       = "format"
 
 ROTATION_OPTIONS = {"daily": 0, "size": 1}
 
-# ── Sensor slot schema (numeric or text, distinguished by ID type) ─────────────
-SENSOR_SLOT_SCHEMA = cv.Schema(
+# ── Slot schemas — typed separately so ESPHome can resolve IDs unambiguously ───
+NUMERIC_SLOT_SCHEMA = cv.Schema(
     {
-        cv.Required(CONF_SENSOR_ID): cv.Any(
-            cv.use_id(sensor_comp.Sensor),
-            cv.use_id(text_sensor_comp.TextSensor),
-        ),
+        cv.Required(CONF_SENSOR_ID): cv.use_id(sensor_comp.Sensor),
         cv.Optional(CONF_FORMAT, default="%.4f"): cv.string_strict,
     }
 )
 
+TEXT_SLOT_SCHEMA = cv.Schema(
+    {
+        cv.Required(CONF_SENSOR_ID): cv.use_id(text_sensor_comp.TextSensor),
+    }
+)
+
 # ── Per-log schema ─────────────────────────────────────────────────────────────
+# Column order in the CSV: sensors: slots first (in order), then text_sensors:
+# slots (in order).
 LOG_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_NAME, default=""):           cv.string,
@@ -66,7 +72,8 @@ LOG_SCHEMA = cv.Schema(
         cv.Required(CONF_LOG_INTERVAL):               cv.positive_time_period_milliseconds,
         cv.Optional(CONF_ROTATION, default="daily"):  cv.one_of(*ROTATION_OPTIONS, lower=True),
         cv.Optional(CONF_MAX_FILE_SIZE, default=52428800): cv.int_range(min=1024),
-        cv.Optional(CONF_SENSORS, default=[]):        cv.ensure_list(SENSOR_SLOT_SCHEMA),
+        cv.Optional(CONF_SENSORS, default=[]):        cv.ensure_list(NUMERIC_SLOT_SCHEMA),
+        cv.Optional(CONF_TEXT_SENSORS, default=[]):   cv.ensure_list(TEXT_SLOT_SCHEMA),
     }
 )
 
@@ -154,10 +161,9 @@ async def to_code(config):
             )
         )
         for slot in log_cfg.get(CONF_SENSORS, []):
-            sid = slot[CONF_SENSOR_ID]
-            s = await cg.get_variable(sid)
-            if sid.type == text_sensor_comp.TextSensor:
-                cg.add(var.add_log_text_slot(s))
-            else:
-                cg.add(var.add_log_numeric_slot(s, slot[CONF_FORMAT]))
+            s = await cg.get_variable(slot[CONF_SENSOR_ID])
+            cg.add(var.add_log_numeric_slot(s, slot[CONF_FORMAT]))
+        for slot in log_cfg.get(CONF_TEXT_SENSORS, []):
+            ts = await cg.get_variable(slot[CONF_SENSOR_ID])
+            cg.add(var.add_log_text_slot(ts))
         cg.add(var.finalize_log())
