@@ -109,6 +109,25 @@ static void catalog_update_closed(const char *cat_path, long offset, uint32_t fi
   fclose(f);
 }
 
+// -- Directory helpers -------------------------------------------------------
+
+// Recursively create all components of an absolute path (mkdir -p equivalent).
+// Ignores EEXIST at each level.  Logs a warning only on unexpected errors.
+static void make_dirs_(const char *abs_path) {
+  char tmp[128];
+  strlcpy(tmp, abs_path, sizeof(tmp));
+  for (char *p = tmp + 1; *p; ++p) {
+    if (*p == '/') {
+      *p = '\0';
+      if (mkdir(tmp, 0777) != 0 && errno != EEXIST)
+        ESP_LOGW(TAG, "mkdir(%s) errno %d", tmp, errno);
+      *p = '/';
+    }
+  }
+  if (mkdir(tmp, 0777) != 0 && errno != EEXIST)
+    ESP_LOGW(TAG, "mkdir(%s) errno %d", tmp, errno);
+}
+
 // -- ESPHome lifecycle --------------------------------------------------------
 
 void SdLogger::setup() {
@@ -123,15 +142,22 @@ void SdLogger::setup() {
     std::string cat_path = this->sd_mmc_->build_path(CATALOG_REL);
     catalog_scan_recover(cat_path.c_str());
 
-    // Ensure sub-directories exist and auto-generate headers
+    // Create base log directory
+    std::string base_abs = this->sd_mmc_->build_path("/" + this->path_);
+    make_dirs_(base_abs.c_str());
+
+    // Per-log: compute subdir, create it, auto-generate header
     for (auto &entry : this->logs_) {
-      // Create folder if specified
-      if (!entry.config.folder.empty()) {
-        std::string dir = this->sd_mmc_->build_path("/" + entry.config.folder);
-        if (mkdir(dir.c_str(), 0777) != 0 && errno != EEXIST) {
-          ESP_LOGW(TAG, "mkdir failed for %s (errno %d)", dir.c_str(), errno);
-        }
+      // Build subdir: path/folder or just path if folder is empty
+      if (entry.config.folder.empty()) {
+        entry.config.subdir = this->path_;
+      } else {
+        entry.config.subdir = this->path_ + "/" + entry.config.folder;
       }
+      std::string dir_abs = this->sd_mmc_->build_path("/" + entry.config.subdir);
+      make_dirs_(dir_abs.c_str());
+      ESP_LOGI(TAG, "Log '%s' -> %s", entry.config.file_prefix.c_str(), dir_abs.c_str());
+
       // Auto-generate header if blank
       if (entry.config.header.empty()) {
         std::string h = "timestamp";
@@ -339,26 +365,16 @@ void SdLogger::task_logging_entry_(void *param) {
 
     // -- Open new file if needed ----------------------------------------------
     if (ctx.fp == nullptr) {
-      char rel_path[80];
+      char rel_path[96];
       if (cfg->rotation == RotationPolicy::DAILY) {
         int y = 0, m = 0, d = 0;
         epoch_to_ymd(pkt.timestamp, &y, &m, &d);
-        if (!cfg->folder.empty()) {
-          snprintf(rel_path, sizeof(rel_path), "/%s/%s_%04d-%02d-%02d.csv",
-                   cfg->folder.c_str(), cfg->file_prefix.c_str(), y, m, d);
-        } else {
-          snprintf(rel_path, sizeof(rel_path), "/%s_%04d-%02d-%02d.csv",
-                   cfg->file_prefix.c_str(), y, m, d);
-        }
+        snprintf(rel_path, sizeof(rel_path), "/%s/%s_%04d-%02d-%02d.csv",
+                 cfg->subdir.c_str(), cfg->file_prefix.c_str(), y, m, d);
       } else {
         // SIZE rotation: use creation epoch as unique suffix
-        if (!cfg->folder.empty()) {
-          snprintf(rel_path, sizeof(rel_path), "/%s/%s_%u.csv",
-                   cfg->folder.c_str(), cfg->file_prefix.c_str(), pkt.timestamp);
-        } else {
-          snprintf(rel_path, sizeof(rel_path), "/%s_%u.csv",
-                   cfg->file_prefix.c_str(), pkt.timestamp);
-        }
+        snprintf(rel_path, sizeof(rel_path), "/%s/%s_%u.csv",
+                 cfg->subdir.c_str(), cfg->file_prefix.c_str(), pkt.timestamp);
       }
 
       long offset = catalog_append_open(cat_path.c_str(), pkt.timestamp, rel_path);

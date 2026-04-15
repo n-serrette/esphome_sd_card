@@ -79,6 +79,7 @@ struct SensorSlot {
 struct LogConfig {
   std::string             name;
   std::string             folder;
+  std::string             subdir;          // precomputed: path/folder — used by task
   std::string             file_prefix;
   std::string             header;          // "" = auto-generated in setup()
   uint32_t                log_interval_ms;
@@ -105,6 +106,9 @@ class SdLogger : public Component {
   void set_queue_size(uint8_t n) { this->queue_size_ = n; }
   void set_task_priority(uint8_t p) { this->task_priority_ = p; }
   void set_fsync_interval_ms(uint32_t ms) { this->fsync_interval_ms_ = ms; }
+
+  // ── Base log path ────────────────────────────────────────────────────────────
+  void set_path(const std::string &p) { this->path_ = p; }
 
   // ── Cloud upload (optional; retained from previous design) ──────────────────
   void set_upload_url(const std::string &u) { this->upload_url_ = u; }
@@ -172,6 +176,7 @@ class SdLogger : public Component {
   // ── Log storage ───────────────────────────────────────────────────────────────
   std::vector<LogEntry> logs_;
   LogEntry             *pending_log_{nullptr};  // temporary during begin/finalize
+  std::string           path_{"logs"};          // base SD subdirectory for all logs
 
   // ── Cloud upload config ───────────────────────────────────────────────────────
   std::string upload_url_;

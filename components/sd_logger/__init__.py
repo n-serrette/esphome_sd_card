@@ -17,6 +17,7 @@ SdLogger = sd_logger_ns.class_("SdLogger", cg.Component)
 
 # ── Top-level keys ────────────────────────────────────────────────────────────
 CONF_TIME_ID              = "time_id"
+CONF_PATH                 = "path"
 CONF_QUEUE_SIZE           = "queue_size"
 CONF_TASK_PRIORITY        = "task_priority"
 CONF_UPLOAD_URL           = "upload_url"
@@ -85,6 +86,9 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Required(sd_mmc.CONF_SD_MMC_ID): cv.use_id(sd_mmc.SdMmc),
         cv.Required(CONF_TIME_ID): cv.use_id(time_comp.RealTimeClock),
 
+        # Base path on SD card for all logs (default: "logs")
+        cv.Optional(CONF_PATH, default="logs"): cv.string_strict,
+
         # FreeRTOS tuning
         cv.Optional(CONF_QUEUE_SIZE, default=50): cv.int_range(min=5, max=200),
         cv.Optional(CONF_TASK_PRIORITY, default=1): cv.int_range(min=0, max=5),
@@ -126,6 +130,7 @@ async def to_code(config):
     cg.add(var.set_queue_size(config[CONF_QUEUE_SIZE]))
     cg.add(var.set_task_priority(config[CONF_TASK_PRIORITY]))
     cg.add(var.set_fsync_interval_ms(config[CONF_FSYNC_INTERVAL].total_milliseconds))
+    cg.add(var.set_path(config[CONF_PATH]))
 
     if config[CONF_UPLOAD_URL]:
         cg.add(var.set_upload_url(config[CONF_UPLOAD_URL]))
