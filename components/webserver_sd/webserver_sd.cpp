@@ -2,8 +2,12 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <fcntl.h>
 #include <map>
 #include <memory>
+#include <unistd.h>
+
+#include "esp_heap_caps.h"
 
 #include "esp_http_server.h"
 #include "esphome/components/network/util.h"
@@ -274,9 +278,14 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
                                           const std::string &mime,
                                           size_t file_size) const {
   std::string abs_path = this->sd_mmc_->build_path(path);
-  FILE *f = fopen(abs_path.c_str(), "rb");
-  if (!f) {
-    ESP_LOGE(TAG, "handle_download_stream: fopen failed for '%s' (errno %d)", path.c_str(), errno);
+
+  // Use POSIX open/read instead of fopen/fread to avoid the hidden newlib
+  // stdio buffer that malloc allocates and may land in PSRAM.  On ESP32-S3
+  // the SDMMC AHB-DMA cannot access PSRAM, which causes a "Cache error /
+  // MMU entry fault" crash.
+  int fd = open(abs_path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    ESP_LOGE(TAG, "handle_download_stream: open failed for '%s' (errno %d)", path.c_str(), errno);
     request->send(503, "application/json", "{ \"error\": \"file read failed\" }");
     return;
   }
@@ -291,11 +300,23 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
   httpd_resp_set_type(req_h, mime.c_str());
   httpd_resp_set_hdr(req_h, "Content-Disposition", disposition.c_str());
 
-  uint8_t buf[4096];
-  size_t n;
+  // Allocate the read buffer from internal DMA-capable DRAM (not the task
+  // stack, not PSRAM) so that FatFS can DMA directly into it for aligned
+  // sector reads without triggering a cache fault.
+  const size_t BUF_SIZE = 4096;
+  uint8_t *buf = static_cast<uint8_t *>(
+      heap_caps_malloc(BUF_SIZE, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+  if (!buf) {
+    ESP_LOGE(TAG, "handle_download_stream: failed to allocate read buffer");
+    close(fd);
+    request->send(503, "application/json", "{ \"error\": \"out of memory\" }");
+    return;
+  }
+
+  ssize_t n;
   bool ok = true;
-  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
-    if (httpd_resp_send_chunk(req_h, reinterpret_cast<const char *>(buf), static_cast<ssize_t>(n)) != ESP_OK) {
+  while ((n = read(fd, buf, BUF_SIZE)) > 0) {
+    if (httpd_resp_send_chunk(req_h, reinterpret_cast<const char *>(buf), n) != ESP_OK) {
       ESP_LOGW(TAG, "Streaming download: client disconnected for '%s'", path.c_str());
       ok = false;
       break;
@@ -303,7 +324,8 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
   }
   if (ok)
     httpd_resp_send_chunk(req_h, nullptr, 0);  // terminate chunked transfer
-  fclose(f);
+  heap_caps_free(buf);
+  close(fd);
   ESP_LOGI(TAG, "Streaming download: %s (%u bytes)", path.c_str(), static_cast<unsigned>(file_size));
 }
 
