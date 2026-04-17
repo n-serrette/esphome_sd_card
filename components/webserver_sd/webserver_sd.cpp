@@ -3,9 +3,12 @@
 #include <cerrno>
 #include <cstdio>
 #include <fcntl.h>
-#include <map>
 #include <memory>
 #include <unistd.h>
+#include <sys/stat.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "esp_heap_caps.h"
 
@@ -56,6 +59,11 @@ void SDFileServer::handleRequest(AsyncWebServerRequest* request) {
     return;
   }
 
+  if (method == HTTP_POST) {
+    this->handle_upload(request);
+    return;
+  }
+
   if (method == HTTP_GET) {
     // Legacy workaround: ?delete param triggers deletion via GET
     if (request->hasParam("delete")) {
@@ -67,12 +75,9 @@ void SDFileServer::handleRequest(AsyncWebServerRequest* request) {
   }
 }
 
-void SDFileServer::handleUpload(AsyncWebServerRequest* request,
-                                const std::string& filename, size_t index,
-                                uint8_t* data, size_t len, bool final) {
+void SDFileServer::handle_upload(AsyncWebServerRequest *request) {
   if (!this->upload_enabled_) {
-    request->send(401, "application/json",
-                  "{ \"error\": \"file upload is disabled\" }");
+    request->send(403, "application/json", "{ \"error\": \"file upload is disabled\" }");
     return;
   }
 
@@ -81,45 +86,83 @@ void SDFileServer::handleUpload(AsyncWebServerRequest* request,
       this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
-  if (index == 0 && !this->sd_mmc_->is_directory(path)) {
-    auto response = request->beginResponse(
-        401, "application/json", "{ \"error\": \"invalid upload folder\" }");
-    response->addHeader("Connection", "close");
-    request->send(response);
+  // URL must identify a file, not a directory
+  if (path.empty() || path.back() == '/' || this->sd_mmc_->is_directory(path)) {
+    request->send(400, "application/json",
+                  "{ \"error\": \"target URL must be a file path, not a directory\" }");
     return;
   }
 
-  std::string file_path = Path::join(path, std::string(filename.c_str()));
-  std::string abs_path = this->sd_mmc_->build_path(file_path);
-  const void *req_key = static_cast<const void *>(request);
+  std::string abs_path = this->sd_mmc_->build_path(path);
 
-  if (index == 0) {
-    FILE *fp = fopen(abs_path.c_str(), "wb");
-    if (!fp) {
-      ESP_LOGE(TAG, "Upload: fopen failed for '%s' (errno %d)", abs_path.c_str(), errno);
-      request->send(500, "application/json", "{ \"error\": \"failed to open file for upload\" }");
-      return;
+  // POSIX open() — avoids newlib stdio call-stack depth.
+  int fd = open(abs_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (fd < 0) {
+    ESP_LOGE(TAG, "handle_upload: open failed for '%s' (errno %d)", abs_path.c_str(), errno);
+    request->send(500, "application/json", "{ \"error\": \"failed to open file for writing\" }");
+    return;
+  }
+
+  // Access the underlying ESP-IDF httpd handle — same technique as handle_download_stream.
+  httpd_req_t *req_h = static_cast<httpd_req_t *>(*request);
+
+  // Constants matching ESPHome's OTA handler (web_server_idf.cpp).
+  static constexpr size_t CHUNK_SIZE  = 1460;        // TCP MSS
+  static constexpr size_t YIELD_EVERY = 16 * 1024;   // yield every 16 KB
+
+  // Recv buffer in internal DRAM — FatFS DMA cannot access PSRAM.
+  uint8_t *buf = static_cast<uint8_t *>(
+      heap_caps_malloc(CHUNK_SIZE, MALLOC_CAP_INTERNAL));
+  if (!buf) {
+    ESP_LOGE(TAG, "handle_upload: failed to allocate recv buffer");
+    close(fd);
+    request->send(503, "application/json", "{ \"error\": \"out of memory\" }");
+    return;
+  }
+
+  size_t remaining = req_h->content_len;
+  size_t bytes_since_yield = 0;
+  bool ok = true;
+
+  while (remaining > 0) {
+    size_t want = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE;
+    int n = httpd_req_recv(req_h, reinterpret_cast<char *>(buf), want);
+    if (n <= 0) {
+      ESP_LOGE(TAG, "handle_upload: recv error %d (errno %d)", n, errno);
+      ok = false;
+      break;
     }
-    this->upload_files_[req_key] = fp;
-  }
-
-  auto it = this->upload_files_.find(req_key);
-  FILE *fp = (it != this->upload_files_.end()) ? it->second : nullptr;
-  if (fp && len > 0) {
-    fwrite(data, 1, len, fp);
-  }
-
-  if (final) {
-    if (fp) {
-      fflush(fp);
-      fclose(fp);
-      this->upload_files_.erase(req_key);
-      this->sd_mmc_->update_sensors();
+    if (write(fd, buf, static_cast<size_t>(n)) != n) {
+      ESP_LOGE(TAG, "handle_upload: write error (errno %d)", errno);
+      ok = false;
+      break;
     }
-    auto response = request->beginResponse(201, "text/html", "upload success");
-    response->addHeader("Connection", "close");
-    request->send(response);
+    remaining -= static_cast<size_t>(n);
+    bytes_since_yield += static_cast<size_t>(n);
+    if (bytes_since_yield >= YIELD_EVERY) {
+      vTaskDelay(1);  // yield to watchdog / other tasks — same as ESPHome OTA
+      bytes_since_yield = 0;
+    }
   }
+
+  heap_caps_free(buf);
+  fsync(fd);
+  close(fd);
+
+  if (!ok) {
+    unlink(abs_path.c_str());  // remove partial file on error
+    httpd_resp_send_err(req_h, HTTPD_500_INTERNAL_SERVER_ERROR, nullptr);
+    return;
+  }
+
+  this->sd_mmc_->update_sensors();
+  ESP_LOGI(TAG, "Upload complete: %s (%u bytes)", abs_path.c_str(),
+           static_cast<unsigned>(req_h->content_len));
+
+  // Send 201 via raw httpd API — same pattern as handle_download_stream.
+  httpd_resp_set_status(req_h, "201 Created");
+  httpd_resp_set_type(req_h, "text/plain");
+  httpd_resp_send(req_h, "upload success", HTTPD_RESP_USE_STRLEN);
 }
 
 void SDFileServer::set_url_prefix(const std::string& prefix) {
