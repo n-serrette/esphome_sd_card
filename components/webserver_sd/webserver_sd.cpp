@@ -195,107 +195,40 @@ void SDFileServer::handle_get(AsyncWebServerRequest* request) const {
   handle_index(request, path);
 }
 
-#include <string>
-#include <vector>
-
-// Assuming necessary includes for Path, sd_mmc, AsyncWebServerRequest, etc.,
-// are already present.
-
-// Helper function to escape JSON strings (for names and URIs that might contain
-// special characters)
-std::string escape_json(const std::string& s) {
-  std::string res;
-  for (char c : s) {
-    switch (c) {
-      case '"': res += "\\\""; break;
-      case '\\': res += "\\\\"; break;
-      case '\n': res += "\\n"; break;
-      case '\r': res += "\\r"; break;
-      case '\t': res += "\\t"; break;
-      case '\b': res += "\\b"; break;
-      case '\f': res += "\\f"; break;
-      default:
-        if (static_cast<unsigned char>(c) < 32 || c == 127) {
-          // Control characters: escape as \u00XX
-          char buf[7];
-          snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
-          res += buf;
-        } else {
-          res += c;
-        }
-        break;
-    }
-  }
-  return res;
-}
-
-// Writes a single JSON object for a file/directory entry directly to the stream.
-void SDFileServer::append_json_row(AsyncResponseStream *response, bool &first,
-                                   const sd_mmc::FileInfo& info) const {
-  if (!first) {
-    response->print(",\n");
-  }
-  first = false;
-
-  std::string file_name = Path::file_name(info.path);
-  std::string uri =
-      "/" + Path::join(this->url_prefix_,
-                       Path::remove_root_path(info.path, this->sd_path_));
-
-  response->print("  {\n");
-  response->printf("    \"name\": \"%s\",\n", escape_json(file_name).c_str());
-  response->printf("    \"is_directory\": %s,\n", info.is_directory ? "true" : "false");
-  if (!info.is_directory) {
-    response->printf("    \"size\": %u,\n", static_cast<unsigned>(info.size));
-  }
-  response->printf("    \"uri\": \"%s\"\n", escape_json(uri).c_str());
-  response->print("  }");
-}
-
-// Streams the directory listing as JSON directly into AsyncResponseStream —
-// no accumulator string, no heap reallocation per entry.
+// Streams the directory listing as CSV (name,size,is_directory) using chunked
+// transfer directly via the underlying httpd handle — no buffering, no heap
+// accumulation per entry. Yields to FreeRTOS every 32 entries (inside sd_mmc).
 void SDFileServer::handle_index(AsyncWebServerRequest* request,
                                 const std::string& path) const {
-  AsyncResponseStream* response =
-      request->beginResponseStream("application/json");
+  httpd_req_t *req_h = static_cast<httpd_req_t *>(*request);
+  httpd_resp_set_status(req_h, "200 OK");
+  httpd_resp_set_type(req_h, "text/csv");
 
-  std::string current_path = "/";
-  std::string relative_path = Path::join(
-      this->url_prefix_, Path::remove_root_path(path, this->sd_path_));
-  std::vector<std::string> parts = Path::split_path(relative_path);
+  static const char HEADER[] = "name,size,is_directory\r\n";
+  httpd_resp_send_chunk(req_h, HEADER, sizeof(HEADER) - 1);
 
-  response->print("{\n");
-  response->printf("  \"current_path\": \"%s\",\n", escape_json(relative_path).c_str());
-  response->printf("  \"upload_enabled\": %s,\n",   this->upload_enabled_   ? "true" : "false");
-  response->printf("  \"download_enabled\": %s,\n", this->download_enabled_ ? "true" : "false");
-  response->printf("  \"delete_enabled\": %s,\n",   this->deletion_enabled_ ? "true" : "false");
+  this->sd_mmc_->list_directory_file_info_stream(
+      path.c_str(), 0, [req_h](const sd_mmc::FileInfo &entry) -> bool {
+        std::string name = Path::file_name(entry.path);
+        // CSV-escape name: wrap in double-quotes and double any inner quotes.
+        std::string quoted;
+        quoted.reserve(name.size() + 2);
+        quoted += '"';
+        for (char c : name) {
+          if (c == '"') quoted += '"';  // RFC 4180: double the quote
+          quoted += c;
+        }
+        quoted += '"';
 
-  response->print("  \"breadcrumbs\": [\n");
-  bool first_breadcrumb = true;
-  for (const auto& part : parts) {
-    if (!part.empty()) {
-      current_path = Path::join(current_path, part);
-      if (!first_breadcrumb)
-        response->print(",\n");
-      first_breadcrumb = false;
-      response->print("    {\n");
-      response->printf("      \"name\": \"%s\",\n", escape_json(part).c_str());
-      response->printf("      \"url\": \"%s\"\n",   escape_json(current_path).c_str());
-      response->print("    }");
-    }
-  }
-  response->print("\n  ],\n");
+        char row[320];
+        snprintf(row, sizeof(row), "%s,%u,%s\r\n",
+                 quoted.c_str(),
+                 static_cast<unsigned>(entry.size),
+                 entry.is_directory ? "true" : "false");
+        return httpd_resp_send_chunk(req_h, row, HTTPD_RESP_USE_STRLEN) == ESP_OK;
+      });
 
-  response->print("  \"items\": [\n");
-  auto entries = this->sd_mmc_->list_directory_file_info(path, 0);
-  bool first_file = true;
-  for (const auto& entry : entries) {
-    append_json_row(response, first_file, entry);
-  }
-  response->print("\n  ]\n");
-  response->print("}");
-
-  request->send(response);
+  httpd_resp_send_chunk(req_h, nullptr, 0);  // terminate chunked transfer
 }
 
 void SDFileServer::handle_download(AsyncWebServerRequest *request,

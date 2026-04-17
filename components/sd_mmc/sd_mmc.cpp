@@ -5,6 +5,7 @@
 #include "math.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
+#include "freertos/task.h"
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
@@ -342,6 +343,48 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
 
   f_closedir(&dir);
   return list;
+}
+
+void SdMmc::list_directory_file_info_stream(const char *path, uint8_t depth, FileInfoCallback callback) {
+  uint32_t count = 0;
+  list_directory_file_info_stream_rec(path, depth, callback, count);
+}
+
+void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
+                                                 FileInfoCallback &callback,
+                                                 uint32_t &count) {
+  std::string fatfs_path = "0:" + std::string(path);
+  FF_DIR dir;
+  FRESULT res = f_opendir(&dir, fatfs_path.c_str());
+  if (res != FR_OK) {
+    ESP_LOGE(TAG, "Failed to open directory '%s': FATFS error %d", path, (int)res);
+    return;
+  }
+
+  std::string base_path(path);
+  if (base_path.size() > 1 && base_path.back() == '/')
+    base_path.pop_back();
+
+  FILINFO fno;
+  while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0] != '\0') {
+    bool is_dir = (fno.fattrib & AM_DIR) != 0;
+    std::string entry_path = (base_path == "/" ? "/" : base_path + "/") + fno.fname;
+    size_t file_size = is_dir ? 0 : static_cast<size_t>(fno.fsize);
+
+    ++count;
+    if ((count & 31) == 0)
+      vTaskDelay(1);  // yield to watchdog / other tasks every 32 entries
+
+    if (!callback(FileInfo(entry_path, file_size, is_dir))) {
+      f_closedir(&dir);
+      return;
+    }
+
+    if (is_dir && depth)
+      list_directory_file_info_stream_rec(entry_path.c_str(), depth - 1, callback, count);
+  }
+
+  f_closedir(&dir);
 }
 
 bool SdMmc::is_directory(const char *path) {

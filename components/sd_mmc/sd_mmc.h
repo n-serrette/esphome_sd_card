@@ -67,6 +67,10 @@ class SdMmc : public Component {
   size_t read_file_chunk(const char *path, size_t offset, uint8_t *buffer, size_t buffer_size);
   using FileChunkCallback = std::function<bool(const uint8_t *data, size_t len)>;
   bool stream_file(const char *path, FileChunkCallback callback, size_t chunk_size = 4096);
+  using FileInfoCallback = std::function<bool(const FileInfo &)>;
+  // Streams directory entries one-by-one via callback; yields to FreeRTOS every 32 entries.
+  // Must be called from a FreeRTOS task context (not the main ESPHome loop).
+  void list_directory_file_info_stream(const char *path, uint8_t depth, FileInfoCallback callback);
   bool is_directory(const char *path);
   bool is_directory(std::string const &path);
   std::vector<std::string> list_directory(const char *path, uint8_t depth);
@@ -109,6 +113,7 @@ class SdMmc : public Component {
 #endif
   uint32_t last_sensor_update_ms_{0};  // debounce guard for f_getfree cost
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
+  void list_directory_file_info_stream_rec(const char *path, uint8_t depth, FileInfoCallback &callback, uint32_t &count);
   static std::string error_code_to_string(ErrorCode);
 };
 
