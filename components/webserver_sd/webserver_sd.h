@@ -3,7 +3,6 @@
 #include "esphome/components/web_server_base/web_server_base.h"
 #include "../sd_mmc/sd_mmc.h"
 #include <cstdio>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -17,8 +16,7 @@ class SDFileServer : public Component, public AsyncWebHandler {
   void dump_config() override;
   bool canHandle(AsyncWebServerRequest *request) const override;
   void handleRequest(AsyncWebServerRequest *request) override;
-  void handleUpload(AsyncWebServerRequest *request, const std::string &filename, size_t index, uint8_t *data, size_t len, bool final) override;
-  bool isRequestHandlerTrivial() const override { return false; }
+  bool isRequestHandlerTrivial() const override { return true; }
 
   void set_url_prefix(const std::string &prefix);
   void set_sd_path(const std::string &path);
@@ -41,11 +39,10 @@ class SDFileServer : public Component, public AsyncWebHandler {
   std::string extract_path_from_url(const std::string &url) const;
   std::string build_absolute_path(std::string relative_path) const;
   void append_json_row(AsyncResponseStream *response, bool &first, const sd_mmc::FileInfo &info) const;
-  // Tracks open POSIX file descriptors across handleUpload chunk callbacks, keyed by request ptr.
-  std::map<const void *, int> upload_files_;
   void handle_index(AsyncWebServerRequest *request, const std::string &path) const;
   void handle_get(AsyncWebServerRequest *request) const;
   void handle_delete(AsyncWebServerRequest *request);
+  void handle_upload(AsyncWebServerRequest *request);
   void handle_download(AsyncWebServerRequest *request, const std::string &path) const;
   void handle_download_stream(AsyncWebServerRequest *request, const std::string &path, const std::string &mime, size_t file_size) const;
 };
