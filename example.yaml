@@ -1,11 +1,11 @@
 substitutions:
-  device_name: blackbox
+  device_name: sd_card_logger
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
 
 esphome:
   name: ${device_name}
-  friendly_name: "Black Box"
+  friendly_name: "SD Card Logger"
 
 esp32:
   board: lolin_s3_pro
@@ -18,7 +18,7 @@ esp32:
 
 external_components:
   - source: github://andrewbackway/esphome-sd_card_web
-    components: [sd_mmc, sd_logger, webserver_sd]
+    components: [sd_card, sd_logger, webserver_sd]
 
 logger:
   level: DEBUG
@@ -26,11 +26,7 @@ logger:
 wifi:
   ssid: ${wifi_ssid}
   password: ${wifi_password}
-  ap:
-    ssid: "${device_name}-fallback"
-    password: !secret ap_password
 
-# ── SNTP time (required by sd_logger) ─────────────────────────────────────────
 time:
   - platform: sntp
     id: sntp_time
@@ -38,18 +34,28 @@ time:
     servers:
       - pool.ntp.org
 
-# ── SD card (4-bit SDMMC, GPIO-matrix on S3) ──────────────────────────────────
-sd_mmc:
-  id: sd_card
+sd_card:
+  id: sd_card1
   cmd_pin: 11   # MOSI / CMD
   clk_pin: 12   # SCK  (onboard TF slot)
   data0_pin: 13 # MISO / DATA0
   mode_1bit: true  # only 3 lines physically wired on LOLIN S3 Pro
 
-# ── Logging hub ───────────────────────────────────────────────────────────────
+web_server:
+  port: 80
+
+webserver_sd:
+  id: file_server
+  sd_card_id: sd_card1
+  url_prefix: "file"
+  root_path: "/"
+  enable_deletion: true
+  enable_download: true
+  enable_upload: true
+
 sd_logger:
   id: logger
-  sd_mmc_id: sd_card
+  sd_card_id: sd_card1
   time_id: sntp_time
   queue_size: 50       # max packets buffered before drops
   task_priority: 1     # FreeRTOS priority (0 = lowest)
@@ -118,26 +124,26 @@ sensor:
     lambda: "return (float)esp_get_free_heap_size();"
 
   # SD card used space
-  - platform: sd_mmc
-    sd_mmc_id: sd_card
+  - platform: sd_card
+    sd_card_id: sd_card
     type: used_space
     name: "SD Used (GB)"
     filters:
-      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
+      - lambda: return (float)sd_card::convertBytes((uint64_t)x, sd_card::MemoryUnits::GigaByte);
 
-  - platform: sd_mmc
-    sd_mmc_id: sd_card
+  - platform: sd_card
+    sd_card_id: sd_card
     type: total_space
     name: "SD Card Capacity (GB)"
     filters:
-      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
+      - lambda: return (float)sd_card::convertBytes((uint64_t)x, sd_card::MemoryUnits::GigaByte);
 
-  - platform: sd_mmc
-    sd_mmc_id: sd_card
+  - platform: sd_card
+    sd_card_id: sd_card
     type: free_space
     name: "SD Card Remaining (GB)"
     filters:
-      - lambda: return (float)sd_mmc::convertBytes((uint64_t)x, sd_mmc::MemoryUnits::GigaByte);
+      - lambda: return (float)sd_card::convertBytes((uint64_t)x, sd_card::MemoryUnits::GigaByte);
 
 text_sensor:
   # Simulated gear position — replace with your real CAN/OBD sensor
@@ -150,8 +156,8 @@ text_sensor:
       return std::string(gears[(millis() / 5000) % 7]);
 
   # SD card type
-  - platform: sd_mmc
-    sd_mmc_id: sd_card
+  - platform: sd_card
+    sd_card_id: sd_card
     sd_card_type:
       name: "SD Card Type"
 
@@ -160,15 +166,3 @@ binary_sensor:
     name: "SD Card Present"
     lambda: "return id(sd_card).is_directory(\"/\");"
 
-# ── Web file browser ──────────────────────────────────────────────────────────
-web_server:
-  port: 80
-
-webserver_sd:
-  id: file_server
-  sd_mmc_id: sd_card
-  url_prefix: "file"
-  root_path: "/"
-  enable_deletion: true
-  enable_download: true
-  enable_upload: true

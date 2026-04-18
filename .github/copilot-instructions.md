@@ -2,7 +2,7 @@
 
 ## Project Overview
 This is an ESPHome **external component** repository providing three custom components:
-- `sd_mmc` — SD card driver (SDMMC peripheral, ESP-IDF)
+- `sd_card` — SD card driver (SDMMC peripheral, ESP-IDF)
 - `sd_logger` — sensor data logger to SD card with FreeRTOS task queue and cloud upload
 - `webserver_sd` — web interface for browsing/downloading SD card files
 
@@ -11,7 +11,7 @@ Target hardware: **ESP32-S3** (e.g. Lolin S3 Pro) running **ESP-IDF framework** 
 ## Repository Structure
 ```
 components/
-  sd_mmc/        # sd_mmc.h, sd_mmc.cpp, __init__.py, sensor.py, text_sensor.py
+  sd_card/        # sd_card.h, sd_card.cpp, __init__.py, sensor.py, text_sensor.py
   sd_logger/     # sd_logger.h, sd_logger.cpp, __init__.py, sensor.py, text_sensor.py
   webserver_sd/  # webserver_sd.h, webserver_sd.cpp, __init__.py
 example.yaml     # reference ESPHome YAML configuration
@@ -28,7 +28,7 @@ example.yaml     # reference ESPHome YAML configuration
 - Structs that cross task boundaries must be **POD** (plain-old-data) so `xQueueSend` copies by value.
 - `CatalogRecord` must remain exactly **64 bytes** (verified by `static_assert`).
 - Use `#pragma pack(push, 1)` / `#pragma pack(pop)` around binary on-disk structs.
-- File paths on SD are always absolute: `/sdcard/<relative>`. Use `sd_mmc_->build_path(filename)` to construct them.
+- File paths on SD are always absolute: `/sdcard/<relative>`. Use `sd_card_->build_path(filename)` to construct them.
 
 ### Python (`__init__.py`)
 - Follow ESPHome schema conventions: `cv.Schema`, `cv.Optional`, `cv.Required`.
@@ -54,11 +54,11 @@ On boot, any record with `CATALOG_STATUS_OPEN` must be transitioned to `CATALOG_
 
 ## YAML Configuration Reference
 See `example.yaml` for a complete working configuration. Key component IDs:
-- `sd_card` → `sd_mmc` component
+- `sd_card` → `sd_card` component
 - `logger` → `sd_logger` component (not the built-in ESPHome logger)
 
 ## Do Not
 - Do not use Arduino libraries or `#include <Arduino.h>`.
 - Do not block the ESPHome main loop; use FreeRTOS tasks for long-running work.
-- Do not hardcode SD mount path; always derive it via `sd_mmc_->build_path(...)`.
+- Do not hardcode SD mount path; always derive it via `sd_card_->build_path(...)`.
 - Do not add features beyond what is requested — keep changes minimal and targeted.

@@ -1,4 +1,4 @@
-﻿#include "sd_logger.h"
+#include "sd_logger.h"
 
 #include <cerrno>
 #include <cstring>
@@ -112,7 +112,7 @@ static void catalog_update_closed(const char *cat_path, long offset, uint32_t fi
 
 // Recursively ensure all components of a relative SD path exist.
 // rel_path must be like "logs" or "logs/vehicle" (no leading slash, no
-// /sdcard prefix).  Uses sd_mmc_->create_directory() which calls f_mkdir
+// /sdcard prefix).  Uses sd_card_->create_directory() which calls f_mkdir
 // directly, bypassing the broken POSIX mkdir stub on this toolchain.
 void SdLogger::make_dirs_(const std::string &rel_path) {
   // Walk each slash-separated prefix and create it if it doesn't exist.
@@ -120,8 +120,8 @@ void SdLogger::make_dirs_(const std::string &rel_path) {
   while (pos != std::string::npos) {
     pos = rel_path.find('/', pos + 1);
     std::string part = "/" + rel_path.substr(0, pos == std::string::npos ? rel_path.size() : pos);
-    if (!this->sd_mmc_->is_directory(part)) {
-      this->sd_mmc_->create_directory(part.c_str());
+    if (!this->sd_card_->is_directory(part)) {
+      this->sd_card_->create_directory(part.c_str());
     }
   }
 }
@@ -136,8 +136,8 @@ void SdLogger::setup() {
     return;
   }
 
-  if (this->sd_mmc_) {
-    std::string cat_path = this->sd_mmc_->build_path(CATALOG_REL);
+  if (this->sd_card_) {
+    std::string cat_path = this->sd_card_->build_path(CATALOG_REL);
     catalog_scan_recover(cat_path.c_str());
 
     // Create base log directory
@@ -314,7 +314,7 @@ void SdLogger::task_logging_entry_(void *param) {
   for (const auto &entry : self->logs_)
     sink_map[entry.config.file_prefix] = &entry.config;
 
-  const std::string cat_path = self->sd_mmc_->build_path(CATALOG_REL);
+  const std::string cat_path = self->sd_card_->build_path(CATALOG_REL);
 
   // Per-prefix open file context (task-local, no sharing with other tasks)
   struct OpenFileCtx {
@@ -379,7 +379,7 @@ void SdLogger::task_logging_entry_(void *param) {
       ctx.ymd            = cur_ymd;
       ctx.bytes_written  = 0;
 
-      std::string abs = self->sd_mmc_->build_path(rel_path);
+      std::string abs = self->sd_card_->build_path(rel_path);
       strlcpy(ctx.abs_path, abs.c_str(), sizeof(ctx.abs_path));
 
       ctx.fp = fopen(ctx.abs_path, "a");

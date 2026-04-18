@@ -5,9 +5,9 @@ from esphome.components import binary_sensor as binary_sensor_comp
 from esphome.components import sensor as sensor_comp
 from esphome.components import text_sensor as text_sensor_comp
 from esphome.const import CONF_ID
-from .. import sd_mmc
+from .. import sd_card
 
-DEPENDENCIES = ["sd_mmc"]
+DEPENDENCIES = ["sd_card"]
 AUTO_LOAD = ["binary_sensor"]
 
 CONF_SD_LOGGER_ID = "sd_logger_id"
@@ -83,7 +83,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.GenerateID(): cv.declare_id(SdLogger),
 
         # Hardware + time
-        cv.Required(sd_mmc.CONF_SD_MMC_ID): cv.use_id(sd_mmc.SdMmc),
+        cv.Required(sd_card.CONF_SD_CARD_ID): cv.use_id(sd_card.SdCard),
         cv.Required(CONF_TIME_ID): cv.use_id(time_comp.RealTimeClock),
 
         # Base path on SD card for all logs (default: "logs")
@@ -121,8 +121,8 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
-    sd = await cg.get_variable(config[sd_mmc.CONF_SD_MMC_ID])
-    cg.add(var.set_sd_mmc(sd))
+    sd = await cg.get_variable(config[sd_card.CONF_SD_CARD_ID])
+    cg.add(var.set_sd_card(sd))
 
     time_var = await cg.get_variable(config[CONF_TIME_ID])
     cg.add(var.set_time(time_var))

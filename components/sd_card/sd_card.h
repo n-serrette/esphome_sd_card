@@ -15,7 +15,7 @@
 #endif
 
 namespace esphome {
-namespace sd_mmc {
+namespace sd_card {
 
 enum MemoryUnits : short { Byte = 0, KiloByte = 1, MegaByte = 2, GigaByte = 3, TeraByte = 4, PetaByte = 5 };
 
@@ -37,7 +37,7 @@ struct FileInfo {
   FileInfo(std::string const &, size_t, bool);
 };
 
-class SdMmc : public Component {
+class SdCard : public Component {
 #ifdef USE_SENSOR
   SUB_SENSOR(used_space)
   SUB_SENSOR(total_space)
@@ -117,9 +117,9 @@ class SdMmc : public Component {
   static std::string error_code_to_string(ErrorCode);
 };
 
-template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
+template<typename... Ts> class SdCardWriteFileAction : public Action<Ts...> {
  public:
-  SdMmcWriteFileAction(SdMmc *parent) : parent_(parent) {}
+  SdCardWriteFileAction(SdCard *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
   TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
 
@@ -130,12 +130,12 @@ template<typename... Ts> class SdMmcWriteFileAction : public Action<Ts...> {
   }
 
  protected:
-  SdMmc *parent_;
+  SdCard *parent_;
 };
 
-template<typename... Ts> class SdMmcAppendFileAction : public Action<Ts...> {
+template<typename... Ts> class SdCardAppendFileAction : public Action<Ts...> {
  public:
-  SdMmcAppendFileAction(SdMmc *parent) : parent_(parent) {}
+  SdCardAppendFileAction(SdCard *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
   TEMPLATABLE_VALUE(std::vector<uint8_t>, data)
 
@@ -146,12 +146,12 @@ template<typename... Ts> class SdMmcAppendFileAction : public Action<Ts...> {
   }
 
  protected:
-  SdMmc *parent_;
+  SdCard *parent_;
 };
 
-template<typename... Ts> class SdMmcCreateDirectoryAction : public Action<Ts...> {
+template<typename... Ts> class SdCardCreateDirectoryAction : public Action<Ts...> {
  public:
-  SdMmcCreateDirectoryAction(SdMmc *parent) : parent_(parent) {}
+  SdCardCreateDirectoryAction(SdCard *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -160,12 +160,12 @@ template<typename... Ts> class SdMmcCreateDirectoryAction : public Action<Ts...>
   }
 
  protected:
-  SdMmc *parent_;
+  SdCard *parent_;
 };
 
-template<typename... Ts> class SdMmcRemoveDirectoryAction : public Action<Ts...> {
+template<typename... Ts> class SdCardRemoveDirectoryAction : public Action<Ts...> {
  public:
-  SdMmcRemoveDirectoryAction(SdMmc *parent) : parent_(parent) {}
+  SdCardRemoveDirectoryAction(SdCard *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -174,12 +174,12 @@ template<typename... Ts> class SdMmcRemoveDirectoryAction : public Action<Ts...>
   }
 
  protected:
-  SdMmc *parent_;
+  SdCard *parent_;
 };
 
-template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
+template<typename... Ts> class SdCardDeleteFileAction : public Action<Ts...> {
  public:
-  SdMmcDeleteFileAction(SdMmc *parent) : parent_(parent) {}
+  SdCardDeleteFileAction(SdCard *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, path)
 
   void play(Ts... x) {
@@ -188,7 +188,7 @@ template<typename... Ts> class SdMmcDeleteFileAction : public Action<Ts...> {
   }
 
  protected:
-  SdMmc *parent_;
+  SdCard *parent_;
 };
 
 long double convertBytes(uint64_t, MemoryUnits);
@@ -196,5 +196,5 @@ std::string memory_unit_to_string(MemoryUnits);
 MemoryUnits memory_unit_from_size(size_t);
 std::string format_size(size_t);
 
-}  // namespace sd_mmc
+}  // namespace sd_card
 }  // namespace esphome

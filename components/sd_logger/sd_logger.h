@@ -6,7 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
-#include "../sd_mmc/sd_mmc.h"
+#include "../sd_card/sd_card.h"
 
 #include <vector>
 #include <string>
@@ -99,7 +99,7 @@ struct LogEntry {
 class SdLogger : public Component {
  public:
   // ── Hardware + time wiring ──────────────────────────────────────────────────
-  void set_sd_mmc(sd_mmc::SdMmc *sd) { this->sd_mmc_ = sd; }
+  void set_sd_card(sd_card::SdCard *sd) { this->sd_card_ = sd; }
   void set_time(time::RealTimeClock *t) { this->time_ = t; }
 
   // ── FreeRTOS queue / task tuning ────────────────────────────────────────────
@@ -150,7 +150,7 @@ class SdLogger : public Component {
   static void task_upload_entry_(void *param);  // Phase 5: catalog walk + HTTP PUT
 
   // ── Directory helper ─────────────────────────────────────────────────────────
-  void make_dirs_(const std::string &rel_path);  // recursive mkdir via sd_mmc_
+  void make_dirs_(const std::string &rel_path);  // recursive mkdir via sd_card_
 
   // ── HTTP helpers (retained; used by upload task in Phase 5) ──────────────────
   bool http_request_(const char *url,
@@ -165,7 +165,7 @@ class SdLogger : public Component {
   bool send_http_ping_(int *http_status, std::string *resp_err);
 
   // ── Hardware ──────────────────────────────────────────────────────────────────
-  sd_mmc::SdMmc       *sd_mmc_{nullptr};
+  sd_card::SdCard       *sd_card_{nullptr};
   time::RealTimeClock *time_{nullptr};
 
   // ── FreeRTOS ─────────────────────────────────────────────────────────────────

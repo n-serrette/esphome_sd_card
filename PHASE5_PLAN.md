@@ -17,7 +17,7 @@ Implement `SdLogger::task_upload_entry_()` in `sd_logger/sd_logger.cpp`.
 3. **Catalog walk**
    - Open `catalog.bin` in `"rb"` mode
    - Read records sequentially; for each record with `status == CATALOG_STATUS_CLOSED`:
-     - Build the absolute path via `sd_mmc_->build_path(rec.filename)`
+     - Build the absolute path via `sd_card_->build_path(rec.filename)`
      - Attempt HTTP PUT (see below)
      - On 2xx → update record in-place to `CATALOG_STATUS_UPLOADED`, fsync catalog
      - On failure → increment backoff, skip to next record, retry this one next pass
@@ -75,4 +75,4 @@ if (!this->upload_url_.empty()) {
 
 - The upload task must **not** close or modify any file that the logging task currently has open. Since the logging task only holds OPEN-status files, and the upload task only touches CLOSED-status files, there is no contention — no mutex required.
 - `esp_http_client` must be initialised and cleaned up within the task (not in `setup()`).
-- If the SD card is unmounted or `sd_mmc_` reports not ready, skip the pass and backoff.
+- If the SD card is unmounted or `sd_card_` reports not ready, skip the pass and backoff.

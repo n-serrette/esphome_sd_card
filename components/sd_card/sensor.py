@@ -8,12 +8,12 @@ from esphome.const import (
     ICON_MEMORY,
 )
 from . import (
-    SdMmc,
-    CONF_SD_MMC_ID,
+    SdCard,
+    CONF_SD_CARD_ID,
     CONF_PATH,
 )
 
-DEPENDENCIES = ["sd_mmc"]
+DEPENDENCIES = ["sd_card"]
 
 CONF_USED_SPACE = "used_space"
 CONF_TOTAL_SPACE = "total_space"
@@ -30,7 +30,7 @@ BASE_CONFIG_SCHEMA = sensor.sensor_schema(
     state_class=STATE_CLASS_MEASUREMENT,
 ).extend(
     {
-        cv.GenerateID(CONF_SD_MMC_ID): cv.use_id(SdMmc),
+        cv.GenerateID(CONF_SD_CARD_ID): cv.use_id(SdCard),
     }
 )
 
@@ -50,10 +50,10 @@ CONFIG_SCHEMA = cv.typed_schema(
 
 
 async def to_code(config):
-    sd_mmc_component = await cg.get_variable(config[CONF_SD_MMC_ID])
+    sd_card_component = await cg.get_variable(config[CONF_SD_CARD_ID])
     var = await sensor.new_sensor(config)
     if config[CONF_TYPE] in SIMPLE_TYPES:
-        func = getattr(sd_mmc_component, f"set_{config[CONF_TYPE]}_sensor")
+        func = getattr(sd_card_component, f"set_{config[CONF_TYPE]}_sensor")
         cg.add(func(var))
     elif config[CONF_TYPE] == CONF_FILE_SIZE:
-        cg.add(sd_mmc_component.add_file_size_sensor(var, config[CONF_PATH]))
+        cg.add(sd_card_component.add_file_size_sensor(var, config[CONF_PATH]))

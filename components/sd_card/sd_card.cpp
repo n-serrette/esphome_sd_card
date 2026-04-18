@@ -1,4 +1,4 @@
-#include "sd_mmc.h"
+#include "sd_card.h"
 
 #include <algorithm>
 #include <memory>
@@ -12,16 +12,16 @@
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
 
-int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/sdmmc/include/sd_protocol_defs.h
+int constexpr SD_OCR_SDHC_CAP = (1 << 30);  // value defined in esp-idf/components/SdCard/include/sd_protocol_defs.h
 
 namespace esphome {
-namespace sd_mmc {
+namespace sd_card {
 
-static const char *TAG = "sd_mmc";
+static const char *TAG = "sd_card";
 static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + 255;  // 255 = FAT LFN max
 static const std::string MOUNT_POINT("/sdcard");
 
-std::string SdMmc::build_path(const std::string &path) const {
+std::string SdCard::build_path(const std::string &path) const {
   std::string full = MOUNT_POINT + path;
   while (full.size() > MOUNT_POINT.size() && full.back() == '/')
     full.pop_back();
@@ -32,7 +32,7 @@ std::string SdMmc::build_path(const std::string &path) const {
 FileSizeSensor::FileSizeSensor(sensor::Sensor *sensor, std::string const &path) : sensor(sensor), path(path) {}
 #endif
 
-void SdMmc::setup() {
+void SdCard::setup() {
   ESP_LOGI(TAG, "Setting up SD MMC...");
   
   if (this->power_ctrl_pin_ != nullptr)
@@ -86,9 +86,9 @@ void SdMmc::setup() {
   ESP_LOGI(TAG, "SD MMC mounted successfully");
 }
 
-void SdMmc::loop() {}
+void SdCard::loop() {}
 
-void SdMmc::dump_config() {
+void SdCard::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
   ESP_LOGCONFIG(TAG, "  CLK Pin: %d", this->clk_pin_);
@@ -118,12 +118,12 @@ void SdMmc::dump_config() {
 #endif
 
   if (this->is_failed()) {
-    ESP_LOGE(TAG, "Setup failed : %s", SdMmc::error_code_to_string(this->init_error_).c_str());
+    ESP_LOGE(TAG, "Setup failed : %s", SdCard::error_code_to_string(this->init_error_).c_str());
     return;
   }
 }
 
-void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
+void SdCard::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
   std::string absolut_path = this->build_path(path);
   FILE *file = NULL;
   file = fopen(absolut_path.c_str(), mode);
@@ -139,17 +139,17 @@ void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, cons
   this->update_sensors();
 }
 
-void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len) {
+void SdCard::write_file(const char *path, const uint8_t *buffer, size_t len) {
   ESP_LOGV(TAG, "Writing to file: %s", path);
   this->write_file(path, buffer, len, "w");
 }
 
-void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
+void SdCard::append_file(const char *path, const uint8_t *buffer, size_t len) {
   ESP_LOGV(TAG, "Appending to file: %s", path);
   this->write_file(path, buffer, len, "a");
 }
 
-bool SdMmc::create_directory(const char *path) {
+bool SdCard::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
   std::string fatfs_path = "0:" + std::string(path);
   FRESULT res = f_mkdir(fatfs_path.c_str());
@@ -161,7 +161,7 @@ bool SdMmc::create_directory(const char *path) {
   return true;
 }
 
-bool SdMmc::remove_directory(const char *path) {
+bool SdCard::remove_directory(const char *path) {
   ESP_LOGV(TAG, "Remove directory: %s", path);
   if (!this->is_directory(path)) {
     ESP_LOGE(TAG, "Not a directory");
@@ -175,7 +175,7 @@ bool SdMmc::remove_directory(const char *path) {
   return true;
 }
 
-bool SdMmc::delete_file(const char *path) {
+bool SdCard::delete_file(const char *path) {
   ESP_LOGV(TAG, "Delete File: %s", path);
   if (this->is_directory(path)) {
     ESP_LOGE(TAG, "Not a file");
@@ -189,9 +189,9 @@ bool SdMmc::delete_file(const char *path) {
   return true;
 }
 
-bool SdMmc::delete_file(std::string const &path) { return this->delete_file(path.c_str()); }
+bool SdCard::delete_file(std::string const &path) { return this->delete_file(path.c_str()); }
 
-std::vector<uint8_t> SdMmc::read_file(const char *path) {
+std::vector<uint8_t> SdCard::read_file(const char *path) {
   ESP_LOGI(TAG, "read_file: Starting read of '%s'", path);
   std::string absolut_path = this->build_path(path);
   FILE *file = fopen(absolut_path.c_str(), "rb");
@@ -253,9 +253,9 @@ std::vector<uint8_t> SdMmc::read_file(const char *path) {
   return res;
 }
 
-std::vector<uint8_t> SdMmc::read_file(std::string const &path) { return this->read_file(path.c_str()); }
+std::vector<uint8_t> SdCard::read_file(std::string const &path) { return this->read_file(path.c_str()); }
 
-size_t SdMmc::read_file_chunk(const char *path, size_t offset, uint8_t *buffer, size_t buffer_size) {
+size_t SdCard::read_file_chunk(const char *path, size_t offset, uint8_t *buffer, size_t buffer_size) {
   std::string absolut_path = this->build_path(path);
   FILE *file = fopen(absolut_path.c_str(), "rb");
   if (file == nullptr) {
@@ -274,7 +274,7 @@ size_t SdMmc::read_file_chunk(const char *path, size_t offset, uint8_t *buffer, 
   return bytes_read;
 }
 
-bool SdMmc::stream_file(const char *path, FileChunkCallback callback, size_t chunk_size) {
+bool SdCard::stream_file(const char *path, FileChunkCallback callback, size_t chunk_size) {
   ESP_LOGV(TAG, "Streaming file: %s with chunk size: %u", path, chunk_size);
   std::string absolut_path = this->build_path(path);
   FILE *file = fopen(absolut_path.c_str(), "rb");
@@ -305,7 +305,7 @@ bool SdMmc::stream_file(const char *path, FileChunkCallback callback, size_t chu
   return success;
 }
 
-std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
+std::vector<FileInfo> &SdCard::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
   std::string fatfs_path = "0:" + std::string(path);
@@ -335,12 +335,12 @@ std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uin
   return list;
 }
 
-void SdMmc::list_directory_file_info_stream(const char *path, uint8_t depth, FileInfoCallback callback) {
+void SdCard::list_directory_file_info_stream(const char *path, uint8_t depth, FileInfoCallback callback) {
   uint32_t count = 0;
   list_directory_file_info_stream_rec(path, depth, callback, count);
 }
 
-void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
+void SdCard::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
                                                  FileInfoCallback &callback,
                                                  uint32_t &count) {
   // Heap-allocate FF_DIR and FILINFO: with LFN+Unicode enabled FILINFO is
@@ -386,7 +386,7 @@ void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
   f_closedir(dir.get());
 }
 
-bool SdMmc::is_directory(const char *path) {
+bool SdCard::is_directory(const char *path) {
   std::string stripped(path);
   while (stripped.size() > 1 && stripped.back() == '/')
     stripped.pop_back();
@@ -398,9 +398,9 @@ bool SdMmc::is_directory(const char *path) {
   return (fno.fattrib & AM_DIR) != 0;
 }
 
-bool SdMmc::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
+bool SdCard::is_directory(std::string const &path) { return this->is_directory(path.c_str()); }
 
-size_t SdMmc::file_size(const char *path) {
+size_t SdCard::file_size(const char *path) {
   // Use FATFS API directly — same reason as is_directory().
   std::string stripped(path);
   while (stripped.size() > 1 && stripped.back() == '/')
@@ -415,9 +415,9 @@ size_t SdMmc::file_size(const char *path) {
   return static_cast<size_t>(fno.fsize);
 }
 
-size_t SdMmc::file_size(std::string const &path) { return this->file_size(path.c_str()); }
+size_t SdCard::file_size(std::string const &path) { return this->file_size(path.c_str()); }
 
-std::string SdMmc::sd_card_type() const {
+std::string SdCard::sd_card_type() const {
   if (this->card_->is_sdio) {
     return "SDIO";
   } else if (this->card_->is_mmc) {
@@ -427,7 +427,7 @@ std::string SdMmc::sd_card_type() const {
   }
 }
 
-void SdMmc::update_sensors() {
+void SdCard::update_sensors() {
 #ifdef USE_SENSOR
   if (this->card_ == nullptr)
     return;
@@ -477,50 +477,50 @@ void SdMmc::update_sensors() {
 #endif
 }
 
-std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
+std::vector<std::string> SdCard::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   std::vector<FileInfo> infos = list_directory_file_info(path, depth);
   std::transform(infos.cbegin(), infos.cend(), std::back_inserter(list), [](FileInfo const &info) { return info.path; });
   return list;
 }
 
-std::vector<std::string> SdMmc::list_directory(std::string path, uint8_t depth) {
+std::vector<std::string> SdCard::list_directory(std::string path, uint8_t depth) {
   return this->list_directory(path.c_str(), depth);
 }
 
-std::vector<FileInfo> SdMmc::list_directory_file_info(const char *path, uint8_t depth) {
+std::vector<FileInfo> SdCard::list_directory_file_info(const char *path, uint8_t depth) {
   std::vector<FileInfo> list;
   list_directory_file_info_rec(path, depth, list);
   return list;
 }
 
-std::vector<FileInfo> SdMmc::list_directory_file_info(std::string path, uint8_t depth) {
+std::vector<FileInfo> SdCard::list_directory_file_info(std::string path, uint8_t depth) {
   return this->list_directory_file_info(path.c_str(), depth);
 }
 
 #ifdef USE_SENSOR
-void SdMmc::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
+void SdCard::add_file_size_sensor(sensor::Sensor *sensor, std::string const &path) {
   this->file_size_sensors_.emplace_back(sensor, path);
 }
 #endif
 
-void SdMmc::set_clk_pin(uint8_t pin) { this->clk_pin_ = pin; }
+void SdCard::set_clk_pin(uint8_t pin) { this->clk_pin_ = pin; }
 
-void SdMmc::set_cmd_pin(uint8_t pin) { this->cmd_pin_ = pin; }
+void SdCard::set_cmd_pin(uint8_t pin) { this->cmd_pin_ = pin; }
 
-void SdMmc::set_data0_pin(uint8_t pin) { this->data0_pin_ = pin; }
+void SdCard::set_data0_pin(uint8_t pin) { this->data0_pin_ = pin; }
 
-void SdMmc::set_data1_pin(uint8_t pin) { this->data1_pin_ = pin; }
+void SdCard::set_data1_pin(uint8_t pin) { this->data1_pin_ = pin; }
 
-void SdMmc::set_data2_pin(uint8_t pin) { this->data2_pin_ = pin; }
+void SdCard::set_data2_pin(uint8_t pin) { this->data2_pin_ = pin; }
 
-void SdMmc::set_data3_pin(uint8_t pin) { this->data3_pin_ = pin; }
+void SdCard::set_data3_pin(uint8_t pin) { this->data3_pin_ = pin; }
 
-void SdMmc::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
+void SdCard::set_mode_1bit(bool b) { this->mode_1bit_ = b; }
 
-void SdMmc::set_power_ctrl_pin(GPIOPin *pin) { this->power_ctrl_pin_ = pin; }
+void SdCard::set_power_ctrl_pin(GPIOPin *pin) { this->power_ctrl_pin_ = pin; }
 
-std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
+std::string SdCard::error_code_to_string(SdCard::ErrorCode code) {
   switch (code) {
     case ErrorCode::ERR_PIN_SETUP:
       return "Failed to set pins";
@@ -575,5 +575,5 @@ std::string format_size(size_t size) {
 FileInfo::FileInfo(std::string const &path, size_t size, bool is_directory)
     : path(path), size(size), is_directory(is_directory) {}
 
-}  // namespace sd_mmc
+}  // namespace sd_card
 }  // namespace esphome

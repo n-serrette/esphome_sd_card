@@ -87,13 +87,13 @@ void SDFileServer::handle_upload(AsyncWebServerRequest *request) {
   std::string path = this->build_absolute_path(extracted);
 
   // URL must identify a file, not a directory
-  if (path.empty() || path.back() == '/' || this->sd_mmc_->is_directory(path)) {
+  if (path.empty() || path.back() == '/' || this->sd_card_->is_directory(path)) {
     request->send(400, "application/json",
                   "{ \"error\": \"target URL must be a file path, not a directory\" }");
     return;
   }
 
-  std::string abs_path = this->sd_mmc_->build_path(path);
+  std::string abs_path = this->sd_card_->build_path(path);
 
   // POSIX open() — avoids newlib stdio call-stack depth.
   int fd = open(abs_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -155,7 +155,7 @@ void SDFileServer::handle_upload(AsyncWebServerRequest *request) {
     return;
   }
 
-  this->sd_mmc_->update_sensors();
+  this->sd_card_->update_sensors();
   ESP_LOGI(TAG, "Upload complete: %s (%u bytes)", abs_path.c_str(),
            static_cast<unsigned>(req_h->content_len));
 
@@ -171,7 +171,7 @@ void SDFileServer::set_url_prefix(const std::string& prefix) {
 void SDFileServer::set_sd_path(const std::string& path) {
   this->sd_path_ = path;
 }
-void SDFileServer::set_sd_mmc(sd_mmc::SdMmc* card) { this->sd_mmc_ = card; }
+void SDFileServer::set_sd_card(sd_card::SdCard* card) { this->sd_card_ = card; }
 void SDFileServer::set_deletion_enabled(bool allow) {
   this->deletion_enabled_ = allow;
 }
@@ -188,7 +188,7 @@ void SDFileServer::handle_get(AsyncWebServerRequest* request) const {
       this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
-  if (!this->sd_mmc_->is_directory(path)) {
+  if (!this->sd_card_->is_directory(path)) {
     handle_download(request, path);
     return;
   }
@@ -197,7 +197,7 @@ void SDFileServer::handle_get(AsyncWebServerRequest* request) const {
 
 // Streams the directory listing as CSV (name,size,is_directory) using chunked
 // transfer directly via the underlying httpd handle — no buffering, no heap
-// accumulation per entry. Yields to FreeRTOS every 32 entries (inside sd_mmc).
+// accumulation per entry. Yields to FreeRTOS every 32 entries (inside sd_card).
 void SDFileServer::handle_index(AsyncWebServerRequest* request,
                                 const std::string& path) const {
   httpd_req_t *req_h = static_cast<httpd_req_t *>(*request);
@@ -207,8 +207,8 @@ void SDFileServer::handle_index(AsyncWebServerRequest* request,
   static const char HEADER[] = "name,size,is_directory\r\n";
   httpd_resp_send_chunk(req_h, HEADER, sizeof(HEADER) - 1);
 
-  this->sd_mmc_->list_directory_file_info_stream(
-      path.c_str(), 0, [req_h](const sd_mmc::FileInfo &entry) -> bool {
+  this->sd_card_->list_directory_file_info_stream(
+      path.c_str(), 0, [req_h](const sd_card::FileInfo &entry) -> bool {
         std::string name = Path::file_name(entry.path);
         // CSV-escape name: wrap in double-quotes and double any inner quotes.
         std::string quoted;
@@ -239,7 +239,7 @@ void SDFileServer::handle_download(AsyncWebServerRequest *request,
     return;
   }
 
-  size_t file_size = this->sd_mmc_->file_size(path);
+  size_t file_size = this->sd_card_->file_size(path);
   if (file_size == static_cast<size_t>(-1)) {
     request->send(404, "application/json", "{ \"error\": \"file not found\" }");
     return;
@@ -253,7 +253,7 @@ void SDFileServer::handle_download_stream(AsyncWebServerRequest *request,
                                           const std::string &path,
                                           const std::string &mime,
                                           size_t file_size) const {
-  std::string abs_path = this->sd_mmc_->build_path(path);
+  std::string abs_path = this->sd_card_->build_path(path);
 
   // Use POSIX open/read instead of fopen/fread to avoid the hidden newlib
   // stdio buffer that malloc allocates and may land in PSRAM.  On ESP32-S3
@@ -317,13 +317,13 @@ void SDFileServer::handle_delete(AsyncWebServerRequest* request) {
       this->extract_path_from_url(std::string(request->url_to(url_buf)));
   std::string path = this->build_absolute_path(extracted);
 
-  if (this->sd_mmc_->is_directory(path)) {
+  if (this->sd_card_->is_directory(path)) {
     request->send(401, "application/json",
                   "{ \"error\": \"cannot delete a directory\" }");
     return;
   }
 
-  if (this->sd_mmc_->delete_file(path)) {
+  if (this->sd_card_->delete_file(path)) {
     request->send(204, "application/json", "{}");
     return;
   }
