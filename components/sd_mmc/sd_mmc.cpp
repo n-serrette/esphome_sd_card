@@ -1,7 +1,7 @@
 #include "sd_mmc.h"
 
 #include <algorithm>
-
+#include <memory>
 #include "math.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
@@ -22,8 +22,6 @@ static constexpr size_t FILE_PATH_MAX = ESP_VFS_PATH_MAX + 255;  // 255 = FAT LF
 static const std::string MOUNT_POINT("/sdcard");
 
 std::string SdMmc::build_path(const std::string &path) const {
-  // ESP-IDF FAT VFS stat() fails on paths with a trailing slash (e.g. "/sdcard/").
-  // Strip any trailing slash unless the result would be just MOUNT_POINT itself.
   std::string full = MOUNT_POINT + path;
   while (full.size() > MOUNT_POINT.size() && full.back() == '/')
     full.pop_back();
@@ -64,9 +62,6 @@ void SdMmc::setup() {
   }
 #endif
 
-  // Enable internal pullups on enabled pins. The internal pullups
-  // are insufficient however, please make sure 10k external pullups are
-  // connected on the bus. This is for debug / example purpose only.
   slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
   auto ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
@@ -156,8 +151,6 @@ void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
 
 bool SdMmc::create_directory(const char *path) {
   ESP_LOGV(TAG, "Create directory: %s", path);
-  // Use FATFS f_mkdir directly — the POSIX mkdir() resolves to a stub on this
-  // toolchain/IDF combination instead of the VFS implementation.
   std::string fatfs_path = "0:" + std::string(path);
   FRESULT res = f_mkdir(fatfs_path.c_str());
   if (res != FR_OK) {
@@ -315,9 +308,6 @@ bool SdMmc::stream_file(const char *path, FileChunkCallback callback, size_t chu
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
   ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
-  // Use FATFS API directly — opendir/readdir resolve to POSIX stubs on this
-  // toolchain/IDF combination instead of the VFS implementations.
-  // 'path' is SD-card-relative (e.g. "/" or "/subdir"); FATFS drive is "0:".
   std::string fatfs_path = "0:" + std::string(path);
   FF_DIR dir;
   FRESULT res = f_opendir(&dir, fatfs_path.c_str());
@@ -353,9 +343,19 @@ void SdMmc::list_directory_file_info_stream(const char *path, uint8_t depth, Fil
 void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
                                                  FileInfoCallback &callback,
                                                  uint32_t &count) {
+  // Heap-allocate FF_DIR and FILINFO: with LFN+Unicode enabled FILINFO is
+  // ~600 bytes and FF_DIR is ~100 bytes.  Keeping them on the call stack
+  // would leave them live while the callback drives into the network send
+  // path, easily overflowing the httpd task's stack.
+  auto dir = std::unique_ptr<FF_DIR>(new (std::nothrow) FF_DIR);
+  auto fno = std::unique_ptr<FILINFO>(new (std::nothrow) FILINFO);
+  if (!dir || !fno) {
+    ESP_LOGE(TAG, "list_directory_file_info_stream_rec: OOM allocating FATFS structs");
+    return;
+  }
+
   std::string fatfs_path = "0:" + std::string(path);
-  FF_DIR dir;
-  FRESULT res = f_opendir(&dir, fatfs_path.c_str());
+  FRESULT res = f_opendir(dir.get(), fatfs_path.c_str());
   if (res != FR_OK) {
     ESP_LOGE(TAG, "Failed to open directory '%s': FATFS error %d", path, (int)res);
     return;
@@ -365,18 +365,17 @@ void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
   if (base_path.size() > 1 && base_path.back() == '/')
     base_path.pop_back();
 
-  FILINFO fno;
-  while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0] != '\0') {
-    bool is_dir = (fno.fattrib & AM_DIR) != 0;
-    std::string entry_path = (base_path == "/" ? "/" : base_path + "/") + fno.fname;
-    size_t file_size = is_dir ? 0 : static_cast<size_t>(fno.fsize);
+  while (f_readdir(dir.get(), fno.get()) == FR_OK && fno->fname[0] != '\0') {
+    bool is_dir = (fno->fattrib & AM_DIR) != 0;
+    std::string entry_path = (base_path == "/" ? "/" : base_path + "/") + fno->fname;
+    size_t entry_size = is_dir ? 0 : static_cast<size_t>(fno->fsize);
 
     ++count;
     if ((count & 31) == 0)
       vTaskDelay(1);  // yield to watchdog / other tasks every 32 entries
 
-    if (!callback(FileInfo(entry_path, file_size, is_dir))) {
-      f_closedir(&dir);
+    if (!callback(FileInfo(entry_path, entry_size, is_dir))) {
+      f_closedir(dir.get());
       return;
     }
 
@@ -384,12 +383,10 @@ void SdMmc::list_directory_file_info_stream_rec(const char *path, uint8_t depth,
       list_directory_file_info_stream_rec(entry_path.c_str(), depth - 1, callback, count);
   }
 
-  f_closedir(&dir);
+  f_closedir(dir.get());
 }
 
 bool SdMmc::is_directory(const char *path) {
-  // Use FATFS API directly — stat() via VFS resolves to POSIX stubs on this
-  // toolchain/IDF combination and does not reach the VFS implementation.
   std::string stripped(path);
   while (stripped.size() > 1 && stripped.back() == '/')
     stripped.pop_back();
