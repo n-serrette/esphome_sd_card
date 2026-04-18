@@ -202,7 +202,7 @@ void SDFileServer::handle_index(AsyncWebServerRequest* request,
                                 const std::string& path) const {
   httpd_req_t *req_h = static_cast<httpd_req_t *>(*request);
   httpd_resp_set_status(req_h, "200 OK");
-  httpd_resp_set_type(req_h, "text/csv");
+  httpd_resp_set_type(req_h, "text/plain; charset=utf-8");
 
   static const char HEADER[] = "name,size,is_directory\r\n";
   httpd_resp_send_chunk(req_h, HEADER, sizeof(HEADER) - 1);
