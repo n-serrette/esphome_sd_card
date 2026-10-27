@@ -143,8 +143,9 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
   size_t fileSize = this->file_size(path);
   res.resize(fileSize);
   size_t len = fread(res.data(), 1, fileSize, file);
+  bool read_error = ferror(file);
   fclose(file);
-  if (len < 0) {
+ if (read_error || (fileSize > 0 && len == 0))  {
     ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
     return std::vector<uint8_t>();
   }

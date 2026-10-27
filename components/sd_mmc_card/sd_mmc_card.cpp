@@ -163,7 +163,7 @@ MemoryUnits memory_unit_from_size(size_t size) {
 std::string format_size(size_t size) {
   MemoryUnits unit = memory_unit_from_size(size);
   char buffer[32];
-  snprintf(buffer, sizeof(buffer), "%.2f %s", convertBytes(size, unit), memory_unit_to_string(unit).c_str());
+  snprintf(buffer, sizeof(buffer), "%.2Lf %s", convertBytes(size, unit), memory_unit_to_string(unit).c_str());
   return std::string(buffer);
 }
 
